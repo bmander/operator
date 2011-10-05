@@ -1,0 +1,17 @@
+LOG
+
+* set up django
+ * downloaded, unzipped
+ * $sudo python setup.py install
+* set up basic lighttpd installation
+ * $sudo apt-get install lighttpd
+* set up postgresql
+
+TODO
+
+function regularly pings MBTA and puts the result in db
+  database
+  function what pings MBA
+  cron job
+web services take mbta stop IDs and return schedule deviations
+android client uses metawatch
