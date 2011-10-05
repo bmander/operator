@@ -5,7 +5,10 @@ LOG
  * $sudo python setup.py install
 * set up basic lighttpd installation
  * $sudo apt-get install lighttpd
+ * automatically started running a service
 * set up postgresql
+ * $sudp apt-get install postgresql
+ * automatically started running a service
 
 TODO
 
