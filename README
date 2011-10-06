@@ -22,6 +22,8 @@ LOG
  * $createuser --superuser brandon
 * install protocol buffers
  * make sure to set up the python library
+* set up cron job, hitting pollmbta django management command
+
 
 TODO
 
