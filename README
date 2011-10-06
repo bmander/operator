@@ -20,6 +20,8 @@ LOG
  * $su postgres
  * $createdb operator
  * $createuser --superuser brandon
+* install protocol buffers
+ * make sure to set up the python library
 
 TODO
 
