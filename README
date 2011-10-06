@@ -9,6 +9,17 @@ LOG
 * set up postgresql
  * $sudp apt-get install postgresql
  * automatically started running a service
+* set up lighttpd to host django
+ * add mod_fastcgi to server.modules and restart
+ * $python manage.py runfcgi daemonize=false socket=/home/brandon/mysite.sock maxrequests=1
+* $sudo apt-get install libpq-dev
+* $sudo apt-get install build-essential
+* $sudo apt-get install python-dev
+* $sudo easy_install psycopg2
+* create database
+ * $su postgres
+ * $createdb operator
+ * $createuser --superuser brandon
 
 TODO
 
