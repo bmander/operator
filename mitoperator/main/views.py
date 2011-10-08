@@ -36,6 +36,13 @@ def deviation(request):
 
     return HttpResponse( "<br>".join( ["%ss ago- %s"%(int(time())-x.data_timestamp, x.arrival_delay) for x in stu] ) )
 
+def deviationrecords( request ):
+    trip_id = request.GET['trip_id']
+
+    stu = StopTimeUpdate.objects.all().filter(trip_id=trip_id).order_by("-fetch_timestamp")
+
+    return HttpResponse( "<br>".join( ["%ss ago- %s"%(int(time())-x.data_timestamp, x.arrival_delay) for x in stu] ) )
+
 from util import trips_on_date
 def trips(request):
     stop_id = request.GET['stop_id']

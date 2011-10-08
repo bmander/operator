@@ -8,6 +8,7 @@ urlpatterns = patterns('',
     # Examples:
     url(r'^$', 'main.views.home', name='home'),
     url(r'^deviation$', 'main.views.deviation', name='deviation'),
+    url(r'^deviationrecords$', 'main.views.deviationrecords', name='deviationrecords'),
     url(r'^trips$', 'main.views.trips', name='trips'),
     url(r'^stops$', 'main.views.stops', name='stops'),
 
