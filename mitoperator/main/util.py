@@ -1,4 +1,5 @@
 from gtfs import Schedule
+from gtfs.entity import Trip
 from datetime import date
 
 def trips_on_date( sched, querydate, querystop ):
@@ -35,6 +36,9 @@ def trips_on_date( sched, querydate, querystop ):
     # execute and return query
     for route_id, route_short_name, route_long_name, trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign, pickup_type, drop_off_type, shape_dist_traveled, id, service_id in list( sched.session.execute( query ) ):
         yield route_id, route_short_name, route_long_name, arrival_time, departure_time, trip_id
+
+def get_trip( sched, trip_id ):
+    return sched.session.query( Trip ).filter_by( trip_id = trip_id ).one()
 
 if __name__=='__main__':
     sched = Schedule( 'massachusetts-archiver_20110913_0233.db' )
