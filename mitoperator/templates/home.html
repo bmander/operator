@@ -1,12 +1,13 @@
 <html>
   <body>
     <p>
-      {{ n }} data points</br>
-      {{ n_trips }} strips
+      {{ n }} data points
+      {% if n_trips %}<br>{{ n_trips }} trips {% endif %}
     </p>
     <p>
-      tracking {{ n_vehicles }} vehicles</br>
-      the whole system is {{ global_delay}} mins late</br>
+      {% if n_vehicles %}tracking {{ n_vehicles }} vehicles{% endif %}
+      {% if global_delay %}<br>the whole system is {{ global_delay}} mins late{%endif%}
+      last update {{ last_update_dt|timesince }} ago
     </p>
     <p>
       <a href="http://en.wikipedia.org/wiki/Operator_(The_Matrix)">operator</a>. get me out of here.

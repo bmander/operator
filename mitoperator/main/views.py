@@ -16,17 +16,22 @@ from gtfs import Schedule
 sched = Schedule( 'massachusetts-archiver_20110913_0233.db' )
 
 def home(req):
-    #n = StopTimeUpdate.objects.all().count()
-    #n_trips = StopTimeUpdate.objects.values('trip_id').annotate(Count('trip_id')).count()
+    n = StopTimeUpdate.objects.all().count()
 
     #delay = StopTimeUpdate.objects.filter( fetch_timestamp__gt = int(time())-60*5 ).aggregate(Avg("arrival_delay"))
+
+    #print delay
+
+    last_update = StopTimeUpdate.objects.all().order_by( "-data_timestamp" )[1]
+    last_update_dt = datetime.fromtimestamp( last_update.data_timestamp )
+
     #recent_count = StopTimeUpdate.objects.filter( fetch_timestamp__gt = int(time())-60*5 ).values('trip_id').annotate(Count('trip_id')).count()
 
     #"""%(n,n_trips, recent_count, delay['arrival_delay__avg']/60.0) )
-    return render_to_response( "home.html", {} )
+    return render_to_response( "home.html", {'n':n, 'last_update_dt':last_update_dt } )
 
 def gtfs_timestr( time ):
-    return "%02d:%02d:%02d"%((time/3600)%12,(time%3600)/60,time%60)
+    return "%02d:%02d:%02d"%((time/3600),(time%3600)/60,time%60)
 
 def deviation(request):
     trip_id = request.GET['trip_id']
