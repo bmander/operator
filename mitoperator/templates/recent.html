@@ -1,0 +1,13 @@
+<html>
+  <body>
+    <table>
+      {% for stu in stus %}
+        <tr>
+          <td>{{stu.data_time}}</td>
+          <td><a href="{% url trip stu.trip_id %}">{{stu.trip_id}}</a></td>
+          <td>{{stu.arrival_delay}}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </body>
+</html>

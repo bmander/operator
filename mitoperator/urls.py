@@ -7,12 +7,11 @@ from django.conf.urls.defaults import patterns, include, url
 urlpatterns = patterns('',
     # Examples:
     url(r'^$', 'main.views.home', name='home'),
-    url(r'^deviation$', 'main.views.deviation', name='deviation'),
     url(r'^deviationrecords$', 'main.views.deviationrecords', name='deviationrecords'),
-    url(r'^trips$', 'main.views.trips', name='trips'),
     url(r'^stops$', 'main.views.stops', name='stops'),
     url(r'^stop/(.*)$', 'main.views.stop', name='stop'),
     url(r'^trip/(.*)$', 'main.views.trip', name='trip'),
+    url(r'^recent/$', 'main.views.recent', name='recent'),
 
     # url(r'^$', 'mitoperator.views.home', name='home'),
     # url(r'^mitoperator/', include('mitoperator.foo.urls')),
