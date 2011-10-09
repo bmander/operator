@@ -26,14 +26,40 @@ def gtfs_timestr( time ):
     return "%02d:%02d:%02d"%((time/3600),(time%3600)/60,time%60)
 
 def deviationrecords( request ):
+
     trip_id = request.GET['trip_id']
+    stus = StopTimeUpdate.objects.all().filter(trip__trip_id=trip_id).order_by("fetch_timestamp").select_related('trip')
 
-    stus = StopTimeUpdate.objects.all().filter(trip_id=trip_id).order_by("fetch_timestamp")
+    # buckets dict of (trip_id, start_date) -> stu
+    buckets = {}
 
-    records = []
-    rec = []
+    for stu in stus:
+        if (stu.trip_id, stu.start_date) not in buckets:
+            buckets[(stu.trip_id, stu.start_date)] = []
 
-    return HttpResponse( json.dumps( records ) )
+        # make the stoptimeupdate into a jsonable dict
+        obj = stu.to_jsonable()
+
+        # piece together a datetime object for the moment this stoptimeupdate's trip started
+        trip_start_seconds_since_midnight = stu.trip.start_time
+        trip_start_hh = trip_start_seconds_since_midnight/3600
+        trip_start_mm = (trip_start_seconds_since_midnight%3600)/60
+        trip_start_ss = trip_start_seconds_since_midnight%60
+        trip_start_year = int(stu.start_date[0:4])
+        trip_start_month = int(stu.start_date[4:6])
+        trip_start_day = int(stu.start_date[6:])
+        trip_start_dt = datetime( trip_start_year, trip_start_month, trip_start_day, trip_start_hh, trip_start_mm, trip_start_ss )
+       
+        # datetime for the data
+        data_dt = datetime.fromtimestamp( stu.data_timestamp )
+
+        # time of the stoptimeupdate with respect to when the trip starts 
+        time_since_trip_start = data_dt - trip_start_dt
+        obj['time_since_trip_start'] = time_since_trip_start.days*24*3600 + time_since_trip_start.seconds
+
+        buckets[(stu.trip_id, stu.start_date)].append( obj )
+
+    return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" )
 
 def stops(request):
     stops = Stop.objects.all()

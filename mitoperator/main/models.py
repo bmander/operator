@@ -149,6 +149,9 @@ class Trip( models.Model ):
     block_id = models.CharField( max_length = 200 )
     shape_id = models.CharField( max_length = 200 )
 
+    #derived column
+    start_time = models.IntegerField(null=True) #the departure time of the first stoptime in this trip
+
 class StopTime( models.Model ):
     class Meta:
         managed = False
