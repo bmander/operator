@@ -6,8 +6,7 @@ class Info( models.Model ):
     timestamp = models.IntegerField() 
 
 class StopTimeUpdate(models.Model):
-    trip_id = models.CharField(max_length=200)
-    #trip = models.ForeignKey("Trip", db_column="trip_id")
+    trip = models.ForeignKey("Trip", db_column="trip_id")
     start_date = models.CharField(max_length=200)
 
     stop_sequence = models.IntegerField(null=True)
