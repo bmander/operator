@@ -1,0 +1,20 @@
+<html>
+  <body>
+  <p>{{stop.stop_name}}</p>
+  <table>
+    <tr>
+      <th>route</th>
+      <th>trip</th>
+      <th>departure time</th>
+    </tr>
+    {% for stoptime in stoptimes %}
+    <tr>
+      <td>{{stoptime.trip.route_id}}</td>
+      <td><a href="{% url trip stoptime.trip_id%}">{{stoptime.trip_id}}</a></td>
+      <td>{{stoptime.departure_time_str}}</td>
+    </tr>
+    {% endfor %}
+  </table>
+   
+  </body>
+</html>

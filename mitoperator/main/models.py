@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import datetime
 
 # Create your models here.
 
@@ -21,6 +22,10 @@ class StopTimeUpdate(models.Model):
 
     fetch_timestamp = models.IntegerField()
     data_timestamp = models.IntegerField()
+
+    @property 
+    def data_time( self ):
+        return datetime.fromtimestamp( self.data_timestamp )
 
     def to_jsonable( self ):
         ret = {}
@@ -52,6 +57,7 @@ class Agency( models.Model ):
     agency_lang = models.CharField( max_length = 200 )
     agency_phone = models.CharField( max_length = 200 )
 
+from datetime import date
 class ServicePeriod( models.Model ):
     class Meta:
         managed = False
@@ -68,6 +74,12 @@ class ServicePeriod( models.Model ):
     start_date = models.IntegerField()
     end_date = models.IntegerField()
 
+    def __repr__(self):
+        return "<ServicePeriod %s %s%s%s%s%s%s%s %s %s>"%(self.service_id, self.monday, self.tuesday, self.wednesday, self.thursday, self.friday, self.saturday, self.sunday, date.fromordinal( self.start_date), date.fromordinal( self.end_date ))
+
+    def __str__(self):
+        return repr(self)
+
 class ServicePeriodException( models.Model ):
     class Meta:
         managed = False
@@ -76,6 +88,10 @@ class ServicePeriodException( models.Model ):
     service_period = models.ForeignKey( ServicePeriod, db_column="service_id" )
     date = models.IntegerField()
     exception_type = models.CharField( max_length = 5 )
+
+    @property
+    def date_date(self):
+        return date.fromordinal( self.date )
 
 class Route( models.Model ):
     class Meta:
@@ -105,8 +121,8 @@ class Stop( models.Model ):
     stop_lon = models.FloatField()
     zone_id = models.CharField( max_length=200 )
     stop_url = models.URLField()
-    location_type = models.CharField()
-    parent_station = models.CharField()
+    location_type = models.CharField( max_length=200 )
+    parent_station = models.CharField( max_length=200 )
 
 class ShapePoint( models.Model ):
     class Meta:
@@ -148,11 +164,18 @@ class StopTime( models.Model ):
     drop_off_type = models.CharField( max_length = 200 )
     shape_dist_traveled = models.FloatField()
 
-    def __repr__(self):
+    @property
+    def departure_time_str(self):
         hh = self.departure_time/3600
         mm = (self.departure_time%3600)/60
         ss = self.departure_time%60
-        return "<StopTime %02d:%02d:%02d>"%(hh,mm,ss)
+        return "%02d:%02d:%02d"%(hh,mm,ss)
+
+    def __repr__(self):
+        return "<StopTime %s>"%self.departure_time_str
+
+    def __str__(self):
+        return repr(self)
 
 class Frequencies( models.Model ):
     class Meta:

@@ -1,0 +1,9 @@
+<html>
+  <body>
+  <ul>
+    {% for stop in stops %}
+    <li><a href="{% url stop stop.stop_id%}">{{stop.stop_name}}</a></li>
+    {% endfor %}
+  </ul>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+<html>
+  <body>
+    <p>trip id:{{trip.trip_id}}</p>
+    <p>operates on {{trip.service_period}}</p>
+    <p>does not operate on: 
+    {% for holiday in holdays %}
+    {{holiday}}
+    {% endfor %}
+    </p>
+    <p>also operates on:
+    {% for holiday in also %}
+    {{ holiday.date_date }}
+    {% endfor %}
+    </p>
+    <h3>stops</h3>
+    <table>
+      {% for stoptime in stoptimes %}
+      <tr>
+      <td><a href="{% url stop stoptime.stop.stop_id%}">{{stoptime.stop.stop_name}}</a></td>
+      <td>{{stoptime.departure_time_str}}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <h3>real time updates</h3>
+    <table>
+      <tr>
+        <th>data time</th>
+        <th>departure delay</th>
+      </tr>
+      {% for stu in stus%}
+      <tr>
+      <td>{{stu.data_time}}</td>
+      <td>{{stu.arrival_delay}}</td>
+      <tr>
+      {% endfor %}
+    </table>
+  </body>
+</html>
