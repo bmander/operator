@@ -12,6 +12,7 @@ urlpatterns = patterns('',
     url(r'^stop/(.*)$', 'main.views.stop', name='stop'),
     url(r'^trip/(.*)$', 'main.views.trip', name='trip'),
     url(r'^recent/$', 'main.views.recent', name='recent'),
+    url(r'^viz/$', 'main.views.viz', name='viz'),
 
     # url(r'^$', 'mitoperator.views.home', name='home'),
     # url(r'^mitoperator/', include('mitoperator.foo.urls')),

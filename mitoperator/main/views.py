@@ -101,3 +101,6 @@ def trip(request, trip_id):
 def recent(request):
     stus = StopTimeUpdate.objects.all().order_by("-data_timestamp")[:500]
     return render_to_response( "recent.html", {'stus':stus} )
+
+def viz( request ):
+    return render_to_response( "viz.html" )
