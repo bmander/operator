@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.db.models import Count, Avg
-from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route
+from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate
 from datetime import date, datetime, timedelta
 from time import time
 
@@ -129,3 +129,7 @@ def route( request, route_id ):
     trips = route.trip_set.order_by('trip_headsign', 'service_period')
 
     return render_to_response( "route.html", {'route':route, 'trips':trips} )
+
+def positions( request ):
+    vps = VehicleUpdate.objects.all().order_by("-data_timestamp")[:500]
+    return render_to_response( "positions.html", {'vps':vps} )

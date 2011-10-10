@@ -1,0 +1,9 @@
+<html>
+  <body>
+  <ul>
+  {% for vp in vps %}
+  <li>trip <a href="{% url trip vp.trip_id %}">{{vp.trip_id}}</a> at ({{vp.latitude}}, {{vp.longitude}})</li>
+  {% endfor %}
+  </ul>
+  </body>
+</html>
