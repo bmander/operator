@@ -13,6 +13,9 @@
     {% endfor %}
     </p>
     <p>
+    route <a href="{% url route trip.route_id %}">{{trip.route_id}}</a>
+    </p>
+    <p>
     <a href="{% url viz %}?trip_id={{trip.trip_id}}">vizualization</a>
     </p>
     <h3>stops</h3>
