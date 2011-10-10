@@ -103,4 +103,9 @@ def recent(request):
     return render_to_response( "recent.html", {'stus':stus} )
 
 def viz( request ):
-    return render_to_response( "viz.html" )
+    trips = []
+
+    if 'trip_id' in request.GET:
+        trips = [ Trip.objects.get( trip_id=request.GET['trip_id'] ) ]
+
+    return render_to_response( "viz.html",  {'trips':trips} )

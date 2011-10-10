@@ -6,6 +6,13 @@
   <h2>schedule deviation</h2>
   <p><canvas id="canvas1" width="400" height="400"></canvas></p>
   <span id="clickme">click me</span>
+
+  <ul>
+  {% for trip in trips %}
+    <li id="trip{{trip.trip_id}}">{{trip.trip_id}}</li>
+  {% endfor %}
+  </ul>
+
   <script id="script1" type="text/javascript">
 
   $(document).ready(function(){
@@ -44,11 +51,9 @@
   for(var y=-30; y<30; y++){
     p.line( -10, y*60, 10, y*60 );
   }
-
-  p.stroke( 0 );
-  $("#clickme").click( function() {
-
-    $.getJSON('/mysite.fcgi/deviationrecords?trip_id=16274695', function(data) {
+  
+  var onclickme = function(eventdata) {
+    $.getJSON('/mysite.fcgi/deviationrecords?trip_id='+eventdata.data.trip_id, function(data) {
         $.each( data, function( key, val ) {
 
           ptlist = val[1];
@@ -62,7 +67,14 @@
         } );
         //console.log( data );
     } )
-  } )
+  } 
+
+  p.stroke( 0 );
+  $("#clickme").click({trip_id:'16274695'}, onclickme )
+
+  {% for trip in trips %}
+  $("#trip{{trip.trip_id}}").click({trip_id:'{{trip.trip_id}}'}, onclickme )
+  {% endfor %}
 
   // p.exit(); to detach it
   
