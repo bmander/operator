@@ -26,10 +26,26 @@
   var canvas = document.getElementById("canvas1");
   // attaching the sketchProc function to the canvas
   var p = new Processing(canvas, sketchProc);
-  p.translate( 0, p.height/2 )
-  p.scale( 0.3, 0 );
+  p.translate( 300, p.height/2 )
+  p.scale( 0.3, -0.3 );
   p.background( 224 );
 
+  p.stroke( 255,0,0 );
+
+  // axes
+  p.line(0, -30*60, 0, 30*60);
+  p.line(-60*60, 0, 60*60, 0);
+
+  // x ticks
+  for(var x=-60; x<60; x++){
+    p.line( x*60, -10, x*60, 10 );
+  }
+  // y ticks
+  for(var y=-30; y<30; y++){
+    p.line( -10, y*60, 10, y*60 );
+  }
+
+  p.stroke( 0 );
   $("#clickme").click( function() {
 
     $.getJSON('/mysite.fcgi/deviationrecords?trip_id=16274695', function(data) {
@@ -39,12 +55,12 @@
           for(var i=0; i< ptlist.length-1; i++) {
             pt1 = ptlist[i];
             pt2 = ptlist[i+1];
-            console.log( pt1.time_since_trip_start+","+pt1.arrival_delay +" "+ pt2.time_since_trip_start +","+pt2.arrival_delay );
-            console.log( pt1.depart_delay );
+            //console.log( pt1.time_since_trip_start+","+pt1.arrival_delay +" "+ pt2.time_since_trip_start +","+pt2.arrival_delay );
+            //console.log( pt1.depart_delay );
             p.line( pt1.time_since_trip_start, pt1.arrival_delay, pt2.time_since_trip_start, pt2.arrival_delay );
           }
         } );
-        console.log( data );
+        //console.log( data );
     } )
   } )
 
