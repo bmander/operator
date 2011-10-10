@@ -40,5 +40,18 @@
       <tr>
       {% endfor %}
     </table>
+    <h3>vehicle positions</h3>
+    <table>
+      <tr>
+        <th>data time</th>
+        <th>position</th>
+      </tr>
+      {% for vp in vps %}
+      <tr>
+      <td>{{vp.data_time}}</td>
+      <td><a href="http://maps.google.com/maps?q={{vp.latitude}},{{vp.longitude}}">({{vp.latitude}},{{vp.longitude}})</a></td>
+      <tr>
+      {% endfor %}
+    </table>
   </body>
 </html>

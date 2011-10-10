@@ -100,7 +100,10 @@ def trip(request, trip_id):
     stoptimes = trip.stoptime_set.all().order_by('departure_time')
 
     stus = trip.stoptimeupdate_set.all().order_by('data_timestamp')
-    return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stus':stus} )
+
+    vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+
+    return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stus':stus, 'vps':vps} )
 
 def recent(request):
     stus = StopTimeUpdate.objects.all().order_by("-data_timestamp")[:500]

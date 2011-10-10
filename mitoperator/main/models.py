@@ -59,6 +59,10 @@ class VehicleUpdate(models.Model):
 
     fetch_timestamp = models.IntegerField(null=True)
 
+    @property 
+    def data_time( self ):
+        return datetime.fromtimestamp( self.data_timestamp )
+
 class Agency( models.Model ):
     class Meta:
         managed = False
