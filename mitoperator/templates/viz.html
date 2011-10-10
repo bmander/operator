@@ -3,10 +3,7 @@
   <script src="/js/processing.js"></script>
   <script src="/js/jquery.js"></script>
   </head>
-  <h1>Processing.js</h1>
-  <h2>Simple processing.js via JavaScript</h2>
-  <p>Clock</p>
-
+  <h2>schedule deviation</h2>
   <p><canvas id="canvas1" width="400" height="400"></canvas></p>
   <span id="clickme">click me</span>
   <script id="script1" type="text/javascript">
@@ -16,6 +13,10 @@
   // Simple way to attach js code to the canvas is by using a function
   function sketchProc(processing) {
     processing.enabled = false;
+
+    processing.setup = function() {
+      processing.size( 1000,400 );
+    }
 
     // Override draw function, by default it will be called 60 times per second
     processing.draw = function() {
@@ -63,6 +64,23 @@
   $("#clickme").click( function() {
     p.enabled = !p.enabled;
     p.background( 224 );
+
+    $.getJSON('/mysite.fcgi/deviationrecords?trip_id=16274695', function(data) {
+        $.each( data, function( key, val ) {
+          p.translate( 0, p.height/2 )
+          p.scale( 0.3, 0 );
+
+          ptlist = val[1];
+          for(var i=0; i< ptlist.length-1; i++) {
+            pt1 = ptlist[i];
+            pt2 = ptlist[i+1];
+            console.log( pt1.time_since_trip_start+","+pt1.arrival_delay +" "+ pt2.time_since_trip_start +","+pt2.arrival_delay );
+            console.log( pt1.depart_delay );
+            p.line( pt1.time_since_trip_start, pt1.arrival_delay, pt2.time_since_trip_start, pt2.arrival_delay );
+          }
+        } );
+        console.log( data );
+    } )
   } )
 
   // p.exit(); to detach it
