@@ -1,0 +1,15 @@
+<html>
+  <body>
+    <p>
+    {{route.route_id}}
+    </p>
+    <p>
+    <a href="{% url viz %}?route_id={{route.route_id}}">visualization</a>
+    </p>
+    <ul>
+    {% for trip in trips %}
+    <li><a href="{% url trip trip.trip_id %}">{{trip.trip_id}}</a> {{trip.trip_headsign}} on {{trip.service_period}}</li> 
+    {% endfor %}
+    </ul>
+  </body>
+<html>

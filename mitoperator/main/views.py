@@ -1,8 +1,8 @@
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.db.models import Count, Avg
-from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException
-from datetime import date, datetime
+from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route
+from datetime import date, datetime, timedelta
 from time import time
 
 import json
@@ -48,7 +48,11 @@ def deviationrecords( request ):
         trip_start_year = int(stu.start_date[0:4])
         trip_start_month = int(stu.start_date[4:6])
         trip_start_day = int(stu.start_date[6:])
+        #sometimes trip_start_hh is greater than 23
+        extra_days = trip_start_hh/24
+        trip_start_hh = trip_start_hh%24
         trip_start_dt = datetime( trip_start_year, trip_start_month, trip_start_day, trip_start_hh, trip_start_mm, trip_start_ss )
+        trip_start_dt += timedelta(days=extra_days)
        
         # datetime for the data
         data_dt = datetime.fromtimestamp( stu.data_timestamp )
@@ -108,4 +112,20 @@ def viz( request ):
     if 'trip_id' in request.GET:
         trips = [ Trip.objects.get( trip_id=request.GET['trip_id'] ) ]
 
+    if 'route_id' in request.GET:
+        route = Route.objects.get(route_id=request.GET['route_id'])
+        for trip in route.trip_set.all().order_by('trip_headsign', 'service_period'):
+            trips.append( trip )
+
     return render_to_response( "viz.html",  {'trips':trips} )
+
+def routes( request ):
+    routes = Route.objects.all()
+
+    return render_to_response( "routes.html", {'routes':routes} )
+
+def route( request, route_id ):
+    route = Route.objects.get(route_id=route_id)
+    trips = route.trip_set.order_by('trip_headsign', 'service_period')
+
+    return render_to_response( "route.html", {'route':route, 'trips':trips} )

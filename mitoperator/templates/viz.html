@@ -9,7 +9,7 @@
 
   <ul>
   {% for trip in trips %}
-    <li id="trip{{trip.trip_id}}">{{trip.trip_id}}</li>
+    <li id="trip{{trip.trip_id}}">{{trip.trip_id}} {{trip.trip_headsign}} {{trip.service_period}}</li>
   {% endfor %}
   </ul>
 
