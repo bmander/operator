@@ -5,6 +5,7 @@ from datetime import datetime
 
 class Info( models.Model ):
     timestamp = models.IntegerField() 
+    buspos_timestamp = models.IntegerField()
 
 class StopTimeUpdate(models.Model):
     trip = models.ForeignKey("Trip", db_column="trip_id")
@@ -44,6 +45,19 @@ class StopTimeUpdate(models.Model):
         ret['data_timestamp'] = self.data_timestamp
 
         return ret;
+
+class VehicleUpdate(models.Model):
+    trip = models.ForeignKey("Trip", db_column="trip_id", null=True)
+    start_date = models.CharField(max_length=200, null=True)
+    schedule_relationship = models.CharField(max_length=200, null=True)
+
+    latitude = models.FloatField(null=True)
+    longitude = models.FloatField(null=True)
+
+    current_stop_sequence = models.IntegerField(null=True)
+    data_timestamp = models.IntegerField(null=True)
+
+    fetch_timestamp = models.IntegerField(null=True)
 
 class Agency( models.Model ):
     class Meta:
