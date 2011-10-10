@@ -7,12 +7,16 @@
   <h2>Simple processing.js via JavaScript</h2>
   <p>Clock</p>
 
-  <p><canvas id="canvas1" width="200" height="200"></canvas></p>
-
+  <p><canvas id="canvas1" width="400" height="400"></canvas></p>
+  <span id="clickme">click me</span>
   <script id="script1" type="text/javascript">
+
+  $(document).ready(function(){
 
   // Simple way to attach js code to the canvas is by using a function
   function sketchProc(processing) {
+    processing.enabled = false;
+
     // Override draw function, by default it will be called 60 times per second
     processing.draw = function() {
       // determine center and max clock arm length
@@ -24,6 +28,10 @@
          processing.line(centerX, centerY, 
          centerX + Math.sin(position * 2 * Math.PI) * lengthScale * maxArmLength,
          centerY - Math.cos(position * 2 * Math.PI) * lengthScale * maxArmLength);
+      }
+
+      if( !processing.enabled ) {
+         return;
       }
 
       // erase background
@@ -49,7 +57,18 @@
   var canvas = document.getElementById("canvas1");
   // attaching the sketchProc function to the canvas
   var p = new Processing(canvas, sketchProc);
+
+  p.enabled = true;
+
+  $("#clickme").click( function() {
+    p.enabled = !p.enabled;
+    p.background( 224 );
+  } )
+
   // p.exit(); to detach it
+  
+  });
+  
   </script>
 
 <div style="height:0px;width:0px;overflow:hidden;"></div>
