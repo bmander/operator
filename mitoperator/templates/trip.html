@@ -18,6 +18,9 @@
     <p>
     <a href="{% url viz %}?trip_id={{trip.trip_id}}">vizualization</a>
     </p>
+    <p>
+    <a href="{% url gpsviz %}?trip_id={{trip.trip_id}}">gps vizualization</a>
+    </p>
     <h3>stops</h3>
     <table>
       {% for stoptime in stoptimes %}

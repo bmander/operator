@@ -1,0 +1,89 @@
+<html>
+<head>
+  <script src="/js/processing.js"></script>
+  <script src="/js/jquery.js"></script>
+  </head>
+  <h2>schedule deviation</h2>
+  <p><canvas id="canvas1" width="400" height="400"></canvas></p>
+  <span id="clickme">click me</span>
+
+  <ul>
+  {% for trip in trips %}
+    <li id="trip{{trip.trip_id}}">{{trip.trip_id}} {{trip.trip_headsign}} {{trip.service_period}} {{trip.shape_id}}</li>
+  {% endfor %}
+  </ul>
+
+  <script id="script1" type="text/javascript">
+
+  $(document).ready(function(){
+
+  // Simple way to attach js code to the canvas is by using a function
+  function sketchProc(processing) {
+
+    processing.setup = function() {
+      processing.size( 1200,600 );
+    }
+
+    // Override draw function, by default it will be called 60 times per second
+    processing.draw = function() {
+    };
+                                                                                                          
+  }
+
+  var canvas = document.getElementById("canvas1");
+  // attaching the sketchProc function to the canvas
+  var p = new Processing(canvas, sketchProc);
+  p.translate( 300, p.height/2 )
+  p.scale( 0.5, -0.2 );
+  p.background( 250 );
+
+  p.stroke( 255,0,0 );
+
+  // axes
+  p.line(0, -30*60, 0, 30*60);
+  p.line(-60*60, 0, 60*60, 0);
+
+  // x ticks
+  for(var x=0; x<=10; x++){
+    p.line( x*100, -10, x*100, 10 );
+  }
+  // y ticks
+  for(var y=-30; y<30; y++){
+    p.line( -10, y*60, 10, y*60 );
+  }
+  
+  var onclickme = function(eventdata) {
+    $.getJSON('/mysite.fcgi/gpsdeviations?trip_id='+eventdata.data.trip_id, function(data) {
+       
+        $.each( data, function( key, val ) {
+
+          ptlist = val[1];
+          for(var i=0; i< ptlist.length-1; i++) {
+            pt1 = ptlist[i];
+            pt2 = ptlist[i+1];
+            //console.log( pt1.time_since_trip_start+","+pt1.arrival_delay +" "+ pt2.time_since_trip_start +","+pt2.arrival_delay );
+            //console.log( pt1.depart_delay );
+            p.line( pt1[0]*1000, pt1[1], pt2[0]*1000, pt2[1] );
+          }
+        } );
+        //console.log( data );
+        
+    } )
+  } 
+
+  p.stroke( 0 );
+  $("#clickme").click({trip_id:'16274695'}, onclickme )
+
+  {% for trip in trips %}
+  $("#trip{{trip.trip_id}}").click({trip_id:'{{trip.trip_id}}'}, onclickme )
+  {% endfor %}
+
+  // p.exit(); to detach it
+  
+  });
+  
+  </script>
+
+<div style="height:0px;width:0px;overflow:hidden;"></div>
+
+
