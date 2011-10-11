@@ -119,18 +119,10 @@ def time_at_percent_along_route( stoptimes, percent_along_route ):
 
 
 from shapely.geometry import Point
-def trip(request, trip_id):
-    trip = Trip.objects.get( trip_id=trip_id )
-    holidays = trip.service_period.serviceperiodexception_set.filter(exception_type='2')
-    also = trip.service_period.serviceperiodexception_set.filter(exception_type='1')
+def set_vehicle_position_deviation_metatdata( vps, shape, stoptimes ):
+    # adds a 'sched_deviation' property to each vehicle position in 'vps'
+    # in the process it writes all over all vps and stoptime instances
 
-    stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
-
-    stus = trip.stoptimeupdate_set.all().order_by('data_timestamp')
-
-    vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
-
-    shape = trip.shape
     for stoptime in stoptimes:
         stoptime.percent_along_route = shape.project( Point(stoptime.stop.stop_lon, stoptime.stop.stop_lat), normalized=True )
 
@@ -143,6 +135,20 @@ def trip(request, trip_id):
          
         scheddiff  = vp.data_time - scheduled_time_dt
         vp.sched_deviation = scheddiff.days*3600*24 + scheddiff.seconds + scheddiff.microseconds/1.0e6
+
+def trip(request, trip_id):
+    trip = Trip.objects.get( trip_id=trip_id )
+    holidays = trip.service_period.serviceperiodexception_set.filter(exception_type='2')
+    also = trip.service_period.serviceperiodexception_set.filter(exception_type='1')
+
+    stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
+
+    stus = trip.stoptimeupdate_set.all().order_by('data_timestamp')
+
+    vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+
+    shape = trip.shape
+    set_vehicle_position_deviation_metatdata( vps, shape, stoptimes )
 
     return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stus':stus, 'vps':vps} )
 
