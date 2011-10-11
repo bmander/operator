@@ -72,6 +72,26 @@ def deviationrecords( request ):
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" )
 
+def gpsdeviations( request ):
+    trip_id = request.GET['trip_id']
+    trip = Trip.objects.get(trip_id=trip_id)
+
+    stoptimes = trip.stoptime_set.all().order_by("departure_time")
+    vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+
+    shape = trip.shape
+    set_vehicle_position_deviation_metatdata( vps, shape, stoptimes )
+
+    buckets = {}
+    for vp in vps:
+        key = (vp.start_date, vp.trip_id)
+        if key not in buckets:
+            buckets[key] = []
+
+        buckets[(vp.start_date, vp.trip_id)].append( (vp.percent_along_route,vp.sched_deviation) )
+
+    return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
+
 def stops(request):
     stops = Stop.objects.all()
 
