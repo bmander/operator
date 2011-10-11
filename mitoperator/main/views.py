@@ -124,7 +124,7 @@ def trip(request, trip_id):
     holidays = trip.service_period.serviceperiodexception_set.filter(exception_type='2')
     also = trip.service_period.serviceperiodexception_set.filter(exception_type='1')
 
-    stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stops' )
+    stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
 
     stus = trip.stoptimeupdate_set.all().order_by('data_timestamp')
 
@@ -175,5 +175,5 @@ def route( request, route_id ):
     return render_to_response( "route.html", {'route':route, 'trips':trips} )
 
 def positions( request ):
-    vps = VehicleUpdate.objects.all().order_by("-data_timestamp")[:500]
+    vps = VehicleUpdate.objects.all().filter(trip__isnull=False).order_by("-data_timestamp")[:500]
     return render_to_response( "positions.html", {'vps':vps} )
