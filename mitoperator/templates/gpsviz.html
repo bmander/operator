@@ -78,11 +78,11 @@
   p.stroke( 0 );
 
   {% for trip in trips %}
-  $("#trip{{trip.trip_id}}").click({url:'/mysite.fcgi/gpsdeviations?trip_id={{trip.trip_id}}'}, onclickme )
+  $("#trip{{trip.trip_id}}").click({url:'{% url gpsdeviations %}?trip_id={{trip.trip_id}}'}, onclickme )
   {% endfor %}
 
   {% for shape in shapes %}
-  $("#shape{{shape}}").click({url:'/mysite.fcgi/gpsdeviations?shape_id={{shape}}'}, onclickme )
+  $("#shape{{shape}}").click({url:'{% url gpsdeviations %}?shape_id={{shape}}'}, onclickme )
   {% endfor %}
 
   // p.exit(); to detach it

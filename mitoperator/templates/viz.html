@@ -53,7 +53,7 @@
   }
   
   var onclickme = function(eventdata) {
-    $.getJSON('/mysite.fcgi/deviationrecords?trip_id='+eventdata.data.trip_id, function(data) {
+    $.getJSON('{% url deviationrecords %}?trip_id='+eventdata.data.trip_id, function(data) {
         $.each( data, function( key, val ) {
 
           ptlist = val[1];
