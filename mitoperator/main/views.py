@@ -92,16 +92,48 @@ def stop(request, stop_id):
 
     return render_to_response( "stop.html", {'stop':stop, 'stoptimes':stoptimes} )
 
+def cons(ary):
+    for i in range(len(ary)-1):
+        yield ary[i], ary[i+1]
+
+def time_at_percent_along_route( stoptimes, percent_along_route ):
+    stoptimes = list(stoptimes)
+    if percent_along_route <= stoptimes[0].percent_along_route:
+        return stoptimes[0].departure_time 
+    if percent_along_route >= stoptimes[-1].percent_along_route:
+        return stoptimes[-1].arrival_time
+    for st1, st2 in cons( stoptimes ):
+        if st1.percent_along_route <= percent_along_route and \
+           st2.percent_along_route > percent_along_route:
+            aa = (percent_along_route - st1.percent_along_route)/(st2.percent_along_route-st1.percent_along_route)
+            return st1.arrival_time + (st2.arrival_time-st1.arrival_time)*aa
+
+    raise Exception( "%s is not between two stoptimes %s"%(percent_along_route, [stoptime.percent_along_route for stoptime in stoptimes]) )
+
+
+from shapely.geometry import Point
 def trip(request, trip_id):
     trip = Trip.objects.get( trip_id=trip_id )
     holidays = trip.service_period.serviceperiodexception_set.filter(exception_type='2')
     also = trip.service_period.serviceperiodexception_set.filter(exception_type='1')
 
-    stoptimes = trip.stoptime_set.all().order_by('departure_time')
+    stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stops' )
 
     stus = trip.stoptimeupdate_set.all().order_by('data_timestamp')
 
     vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+
+    shape = trip.shape
+    for stoptime in stoptimes:
+        stoptime.percent_along_route = shape.project( Point(stoptime.stop.stop_lon, stoptime.stop.stop_lat), normalized=True )
+
+    for vp in vps:
+        vp.percent_along_route = shape.project( Point(vp.longitude, vp.latitude), normalized=True )
+        vp.scheduled_time =  time_at_percent_along_route( stoptimes, vp.percent_along_route )
+        vp.scheduled_time_str = gtfs_timestr( vp.scheduled_time )
+
+        dd = vp.data_time
+        vp.sched_deviation = dd.hour*3600+dd.minute*60+dd.second - vp.scheduled_time
 
     return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stus':stus, 'vps':vps} )
 

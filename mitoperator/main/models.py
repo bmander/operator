@@ -153,6 +153,7 @@ class ShapePoint( models.Model ):
     shape_pt_sequence = models.IntegerField()
     shape_dist_traveled = models.CharField( max_length=200 )
 
+from shapely.geometry import LineString, Point
 class Trip( models.Model ):
     class Meta:
         managed = False
@@ -166,6 +167,14 @@ class Trip( models.Model ):
     direction_id = models.CharField( max_length = 200 )
     block_id = models.CharField( max_length = 200 )
     shape_id = models.CharField( max_length = 200 )
+    
+    @property
+    def shape_points(self):
+        return ShapePoint.objects.all().filter( shape_id=self.shape_id ).order_by('shape_pt_sequence')
+
+    @property
+    def shape(self):
+        return LineString( [(float(x.shape_pt_lon),float(x.shape_pt_lat)) for x in self.shape_points] )
 
     #derived column
     start_time = models.IntegerField(null=True) #the departure time of the first stoptime in this trip
