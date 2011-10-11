@@ -8,14 +8,16 @@ from time import time
 import json
 
 def home(req):
-    n = StopTimeUpdate.objects.all().count()
+    #n = StopTimeUpdate.objects.all().count()
+    n = None
 
     #delay = StopTimeUpdate.objects.filter( fetch_timestamp__gt = int(time())-60*5 ).aggregate(Avg("arrival_delay"))
 
     #print delay
 
-    last_update = StopTimeUpdate.objects.all().order_by( "-data_timestamp" )[1]
-    last_update_dt = datetime.fromtimestamp( last_update.data_timestamp )
+    #last_update = StopTimeUpdate.objects.all().order_by( "-data_timestamp" )[1]
+    #last_update_dt = datetime.fromtimestamp( last_update.data_timestamp )
+    last_update_dt = None
 
     #recent_count = StopTimeUpdate.objects.filter( fetch_timestamp__gt = int(time())-60*5 ).values('trip_id').annotate(Count('trip_id')).count()
 
@@ -86,7 +88,7 @@ def gpsdeviations( request ):
         vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
         if len(vps)==0:
             continue
-        print trip.trip_id
+        #print trip.trip_id
 
         stoptimes = trip.stoptime_set.all().order_by("departure_time")
 

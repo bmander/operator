@@ -1,11 +1,11 @@
 <html>
   <body>
+    <h1>{{route.route_id}}</h1>
     <p>
-    {{route.route_id}}
+    <a href="{% url viz %}?route_id={{route.route_id}}">delay visualization</a></br>
+    <a href="{% url gpsviz %}?route_id={{route.route_id}}">gps-based delay visualization</a>
     </p>
-    <p>
-    <a href="{% url viz %}?route_id={{route.route_id}}">visualization</a>
-    </p>
+    <h3>trips</h3>
     <ul>
     {% for trip in trips %}
     <li><a href="{% url trip trip.trip_id %}">{{trip.trip_id}}</a> {{trip.trip_headsign}} on {{trip.service_period}}</li> 

@@ -1,14 +1,6 @@
 <html>
   <body>
-    <p>
-      {{ n }} data points
-      {% if n_trips %}<br>{{ n_trips }} trips {% endif %}
-    </p>
-    <p>
-      {% if n_vehicles %}tracking {{ n_vehicles }} vehicles{% endif %}
-      {% if global_delay %}<br>the whole system is {{ global_delay}} mins late{%endif%}
-      last update {{ last_update_dt|timesince }} ago
-    </p>
+    <h1>Operator</h1>
     <p>
       <a href="http://en.wikipedia.org/wiki/Operator_(The_Matrix)">operator</a>. get me out of here.
     </p>
@@ -19,10 +11,10 @@
       <a href="{% url routes %}">routes</a>
     </p>
     <p>
-      <a href="{% url recent %}">recent updates</a>
+      <a href="{% url recent %}">latest schedule updates</a>
     <p>
     <p>
-      <a href="{% url positions %}">recent positions</a>
+      <a href="{% url positions %}">latest vehicle positions</a>
     </p>
   </body>
 </html>

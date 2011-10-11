@@ -1,34 +1,36 @@
 <html>
   <body>
-    <p>trip id:{{trip.trip_id}}</p>
-    <p>operates on {{trip.service_period}}</p>
-    <p>does not operate on: 
+    <h1>trip id:{{trip.trip_id}}</h1>
+    <p>
+    route <a href="{% url route trip.route_id %}">{{trip.route_id}}</a> "{{trip.trip_headsign}}"
+    </p>
+    <p>operates on {{trip.service_period}}</br>
+    does not operate on: 
     {% for holiday in holdays %}
     {{holiday}}
     {% endfor %}
-    </p>
-    <p>also operates on:
+    </br>
+    also operates on:
     {% for holiday in also %}
     {{ holiday.date_date }}
     {% endfor %}
     </p>
     <p>
-    route <a href="{% url route trip.route_id %}">{{trip.route_id}}</a>
+    <a href="{% url viz %}?trip_id={{trip.trip_id}}">delay visualization</a>
     </p>
     <p>
-    <a href="{% url viz %}?trip_id={{trip.trip_id}}">vizualization</a>
-    </p>
-    <p>
-    <a href="{% url gpsviz %}?trip_id={{trip.trip_id}}">gps vizualization</a>
+    <a href="{% url gpsviz %}?trip_id={{trip.trip_id}}">gps-based delay visualization</a>
     </p>
     <h3>stops</h3>
     <table>
+      <tr>
+        <th>stop name</th>
+        <th>scheduled departure</th>
+      </tr>
       {% for stoptime in stoptimes %}
       <tr>
       <td><a href="{% url stop stoptime.stop.stop_id%}">{{stoptime.stop.stop_name}}</a></td>
-      <td>{{ stoptime.shape_dist_traveled }}</td>
       <td>{{stoptime.departure_time_str}}</td>
-      <td>{{stoptime.percent_along_route}}</td>
       </tr>
       {% endfor %}
     </table>

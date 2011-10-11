@@ -1,9 +1,19 @@
 <html>
   <body>
-    <ul>
+    <h1>routes</h1>
+    <table>
+      <tr>
+        <th>id</th>
+        <th>short name</th>
+        <th>long name</th>
+      </tr>
       {% for route in routes %}
-      <li><a href="{% url route route.route_id %}">{{route.route_id}}</a></li>
+      <tr>
+        <td><a href="{% url route route.route_id %}">{{route.route_id}}</a></td>
+        <td>{{route.route_short_name}}</td>
+        <td>{{route.route_long_name}}</td>
+      </tr>
       {% endfor %}
-    </ul>
+    </table>
   </body>
 </html>
