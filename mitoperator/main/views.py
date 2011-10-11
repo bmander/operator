@@ -25,6 +25,25 @@ def home(req):
 def gtfs_timestr( time ):
     return "%02d:%02d:%02d"%((time/3600),(time%3600)/60,time%60)
 
+def build_datetime( datestr, timesecs ):
+    # datestr is a date string like "20112901" and timesecs is the number of seconds since midnight on that date
+        
+    hh = int(timesecs)/3600
+    mm = (int(timesecs)%3600)/60
+    ss = int(timesecs)%60
+    us = int((timesecs%1)*1e6)
+    year = int(datestr[0:4])
+    month = int(datestr[4:6])
+    day = int(datestr[6:])
+
+    #sometimes trip_start_hh is greater than 23
+    extra_days = hh/24
+    hh = hh%24
+    ret = datetime( year, month, day, hh, mm, ss, us )
+    ret += timedelta(days=extra_days)
+
+    return ret
+
 def deviationrecords( request ):
 
     trip_id = request.GET['trip_id']
@@ -40,19 +59,7 @@ def deviationrecords( request ):
         # make the stoptimeupdate into a jsonable dict
         obj = stu.to_jsonable()
 
-        # piece together a datetime object for the moment this stoptimeupdate's trip started
-        trip_start_seconds_since_midnight = stu.trip.start_time
-        trip_start_hh = trip_start_seconds_since_midnight/3600
-        trip_start_mm = (trip_start_seconds_since_midnight%3600)/60
-        trip_start_ss = trip_start_seconds_since_midnight%60
-        trip_start_year = int(stu.start_date[0:4])
-        trip_start_month = int(stu.start_date[4:6])
-        trip_start_day = int(stu.start_date[6:])
-        #sometimes trip_start_hh is greater than 23
-        extra_days = trip_start_hh/24
-        trip_start_hh = trip_start_hh%24
-        trip_start_dt = datetime( trip_start_year, trip_start_month, trip_start_day, trip_start_hh, trip_start_mm, trip_start_ss )
-        trip_start_dt += timedelta(days=extra_days)
+        trip_start_dt = build_datetime( stu.start_date, stu.trip.start_time )
        
         # datetime for the data
         data_dt = datetime.fromtimestamp( stu.data_timestamp )
@@ -129,11 +136,13 @@ def trip(request, trip_id):
 
     for vp in vps:
         vp.percent_along_route = shape.project( Point(vp.longitude, vp.latitude), normalized=True )
-        vp.scheduled_time =  time_at_percent_along_route( stoptimes, vp.percent_along_route )
+        vp.scheduled_time =  time_at_percent_along_route( stoptimes, vp.percent_along_route ) # seconds since midnight; can go over 24 hours
         vp.scheduled_time_str = gtfs_timestr( vp.scheduled_time )
 
-        dd = vp.data_time
-        vp.sched_deviation = dd.hour*3600+dd.minute*60+dd.second - vp.scheduled_time
+        scheduled_time_dt = build_datetime( vp.start_date, vp.scheduled_time )
+         
+        scheddiff  = vp.data_time - scheduled_time_dt
+        vp.sched_deviation = scheddiff.days*3600*24 + scheddiff.seconds + scheddiff.microseconds/1.0e6
 
     return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stus':stus, 'vps':vps} )
 
