@@ -5,8 +5,12 @@
   </head>
   <h2>schedule deviation</h2>
   <p><canvas id="canvas1" width="400" height="400"></canvas></p>
-  <span id="clickme">click me</span>
 
+  <h3>shapes</h3>
+  {% for shape in shapes %}
+    <span id="shape{{shape}}" style="background-color:{% if forloop.counter|divisibleby:2%}#ffbbbb{% else %}#bbbbff{% endif %}">{{shape}}</span>
+  {% endfor %}
+  <h3>trips</h3>
   <ul>
   {% for trip in trips %}
     <li id="trip{{trip.trip_id}}">{{trip.trip_id}} {{trip.trip_headsign}} {{trip.service_period}} {{trip.shape_id}}</li>
@@ -53,7 +57,7 @@
   }
   
   var onclickme = function(eventdata) {
-    $.getJSON('/mysite.fcgi/gpsdeviations?trip_id='+eventdata.data.trip_id, function(data) {
+    $.getJSON(eventdata.data.url, function(data) {
        
         $.each( data, function( key, val ) {
 
@@ -72,10 +76,13 @@
   } 
 
   p.stroke( 0 );
-  $("#clickme").click({trip_id:'16274695'}, onclickme )
 
   {% for trip in trips %}
-  $("#trip{{trip.trip_id}}").click({trip_id:'{{trip.trip_id}}'}, onclickme )
+  $("#trip{{trip.trip_id}}").click({url:'/mysite.fcgi/gpsdeviations?trip_id={{trip.trip_id}}'}, onclickme )
+  {% endfor %}
+
+  {% for shape in shapes %}
+  $("#shape{{shape}}").click({url:'/mysite.fcgi/gpsdeviations?shape_id={{shape}}'}, onclickme )
   {% endfor %}
 
   // p.exit(); to detach it
