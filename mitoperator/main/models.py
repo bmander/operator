@@ -58,10 +58,15 @@ class VehicleUpdate(models.Model):
     data_timestamp = models.IntegerField(null=True)
 
     fetch_timestamp = models.IntegerField(null=True)
+    percent_along_trip = models.FloatField(null=True)
 
     @property 
     def data_time( self ):
         return datetime.fromtimestamp( self.data_timestamp )
+
+    @property
+    def shape(self):
+        return Point( self.longitude, self.latitude )
 
 class Agency( models.Model ):
     class Meta:
@@ -142,6 +147,10 @@ class Stop( models.Model ):
     location_type = models.CharField( max_length=200 )
     parent_station = models.CharField( max_length=200 )
 
+    @property
+    def shape(self):
+        return Point( self.stop_lon, self.stop_lat )
+
 class ShapePoint( models.Model ):
     class Meta:
         managed = False
@@ -152,6 +161,14 @@ class ShapePoint( models.Model ):
     shape_pt_lon = models.CharField( max_length=200 )
     shape_pt_sequence = models.IntegerField()
     shape_dist_traveled = models.CharField( max_length=200 )
+
+    @classmethod
+    def shape_points(cls, shape_id):
+        return cls.objects.all().filter( shape_id=shape_id ).order_by('shape_pt_sequence')
+
+    @classmethod
+    def shape(cls, shape_id):
+        return LineString( [(float(x.shape_pt_lon),float(x.shape_pt_lat)) for x in cls.shape_points(shape_id)] )
 
 from shapely.geometry import LineString, Point
 class Trip( models.Model ):
@@ -193,6 +210,8 @@ class StopTime( models.Model ):
     pickup_type = models.CharField( max_length = 5 )
     drop_off_type = models.CharField( max_length = 200 )
     shape_dist_traveled = models.FloatField()
+
+    percent_along_trip = models.FloatField()
 
     @property
     def departure_time_str(self):
