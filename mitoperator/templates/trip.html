@@ -30,7 +30,7 @@
       {% for stoptime in stoptimes %}
       <tr>
       <td><a href="{% url stop stoptime.stop.stop_id%}">{{stoptime.stop.stop_name}}</a></td>
-      <td>{{stoptime.departure_time_str}}</td>
+      <td><a href="{% url stoptime stoptime.pk%}">{{stoptime.departure_time_str}}</a></td>
       </tr>
       {% endfor %}
     </table>

@@ -1,0 +1,25 @@
+<html>
+  <body>
+    route: {{stoptime.trip.route_id}}<br>
+    trip: <a href="{% url trip stoptime.trip_id %}">{{stoptime.trip_id}}</a><br>
+    stop: <a href="{% url stop stoptime.stop_id %}">{{stoptime.stop.stop_name}}</a><br>
+    time: {{stoptime.departure_time_str}}<br>
+    {{stoptime.percent_along_trip}} along trip</br>
+
+    <h3>events</h3>
+    <table>
+      <tr>
+        <th>preceding event</th>
+        <th>following event</th>
+        <th>interpolated time</th>
+      </tr>
+      {% for event in events %}
+      <tr>
+        <td>{{event.vu1.start_date}} - {{event.vu1.data_timestamp}}</td>
+        <td>{{event.vu2.start_date}} - {{event.vu2.data_timestamp}}</td>
+        <td>{{event.time}}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </body>
+</html>

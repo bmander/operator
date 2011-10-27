@@ -68,6 +68,19 @@ class VehicleUpdate(models.Model):
     def shape(self):
         return Point( self.longitude, self.latitude )
 
+    @classmethod
+    def trip_instances(cls, trip_id):
+        trip_vehicle_updates = cls.objects.all().filter(trip__pk=trip_id).order_by('data_timestamp')
+
+        ret = {}
+        for vehicle_update in trip_vehicle_updates:
+            if vehicle_update.start_date not in ret:
+                ret[vehicle_update.start_date] = []
+
+            ret[vehicle_update.start_date].append( vehicle_update )
+
+        return ret.values()
+
 class Agency( models.Model ):
     class Meta:
         managed = False
@@ -195,6 +208,9 @@ class Trip( models.Model ):
 
     #derived column
     start_time = models.IntegerField(null=True) #the departure time of the first stoptime in this trip
+
+    def str(self):
+        return "<Trip %s>"%self.trip_id
 
 class StopTime( models.Model ):
     class Meta:

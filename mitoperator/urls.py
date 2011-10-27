@@ -18,6 +18,7 @@ urlpatterns = patterns('',
     url(r'^routes/$', 'main.views.routes', name='routes'),
     url(r'^route/(.*)$', 'main.views.route', name='route'),
     url(r'^positions/$', 'main.views.positions', name='positions'),
+    url(r'^stoptime/(.*)$', 'main.views.stoptime', name='stoptime'),
 
     # url(r'^$', 'mitoperator.views.home', name='home'),
     # url(r'^mitoperator/', include('mitoperator.foo.urls')),

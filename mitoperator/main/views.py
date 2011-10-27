@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.db.models import Count, Avg
-from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate
+from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate, StopTime
 from datetime import date, datetime, timedelta
 from time import time
 
@@ -232,3 +232,38 @@ def route( request, route_id ):
 def positions( request ):
     vps = VehicleUpdate.objects.all().filter(trip__isnull=False).order_by("-data_timestamp")[:500]
     return render_to_response( "positions.html", {'vps':vps} )
+
+def find_stddev( ary ):
+    mean = sum(ary)/float(len(ary))
+    square_variances = [(x-mean)**2 for x in ary]
+    
+    return (sum(square_variances)/float(len(ary)))**0.5
+
+def stoptime( request, id ):
+    stoptime = StopTime.objects.get(pk=id)
+
+    trip_instances = VehicleUpdate.trip_instances( stoptime.trip_id )
+  
+    events = []
+    for trip_instance in trip_instances:
+        for vu1, vu2 in cons( trip_instance ):
+            if vu1.percent_along_trip <= stoptime.percent_along_trip and \
+               vu2.percent_along_trip >= stoptime.percent_along_trip:
+                dt = vu2.data_timestamp - vu1.data_timestamp
+                ds = vu2.percent_along_trip - vu1.percent_along_trip
+
+                ds_prime = stoptime.percent_along_trip - vu1.percent_along_trip
+               
+                if ds == 0:
+                    percent_of_interval = 1
+                else:
+                    percent_of_interval = ds_prime/ds
+
+                interpolated_time = percent_of_interval*dt + vu1.data_timestamp
+
+                events.append( {'vu1':vu1, 'vu2':vu2, 'time':datetime.fromtimestamp(interpolated_time),'timestamp':interpolated_time} )
+
+    #meantime = sum([x['timestamp'] for x in events])/len(events)
+    #stddev = find_stddev( [x['timestamp'] for x in events] )
+
+    return HttpResponse( render_to_response( "stoptime.html", {'stoptime':stoptime, 'events':events} ) )
