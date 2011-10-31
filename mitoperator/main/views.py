@@ -85,6 +85,7 @@ def gpsdeviations( request ):
         trips = []
 
     for trip in trips:
+
         vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
         if len(vps)==0:
             continue
