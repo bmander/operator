@@ -157,7 +157,7 @@ def set_vehicle_position_deviation_metadata( vps, shape, stoptimes ):
     # in the process it writes all over all vps and stoptime instances
 
     for stoptime in stoptimes:
-        stoptime.percent_along_route = shape.project( Point(stoptime.stop.stop_lon, stoptime.stop.stop_lat), normalized=True )
+        stoptime.percent_along_route = shape.project( stoptime.stop.shape, normalized=True )
 
     for vp in vps:
         vp.percent_along_route = shape.project( Point(vp.longitude, vp.latitude), normalized=True )
