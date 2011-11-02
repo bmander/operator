@@ -2,7 +2,10 @@
   <body>
     <h1>trip id:{{trip.trip_id}}</h1>
     <p>
-    route <a href="{% url route trip.route_id %}">{{trip.route_id}}</a> "{{trip.trip_headsign}}"
+    route <a href="{% url route trip.route_id %}">{{trip.route_id}}</a> "{{trip.trip_headsign}}" 
+    </p>
+    <p>
+    shape: <a href="{% url shape trip.shape_id %}">{{trip.shape_id}}</a>
     </p>
     <p>operates on {{trip.service_period}}</br>
     does not operate on: 
@@ -35,39 +38,10 @@
       {% endfor %}
     </table>
     <h3>real time updates</h3>
-    <table>
-      <tr>
-        <th>data time</th>
-        <th>departure delay</th>
-      </tr>
-      {% for stu in stus%}
-      <tr>
-      <td>{{stu.data_time}}</td>
-      <td>{{stu.arrival_delay}}</td>
-      <tr>
-      {% endfor %}
-    </table>
+    <p>count: {{ stu_count }}</p>
     <h3>vehicle positions</h3>
-    <table>
-      <tr>
-        <th>data time</th>
-        <th>position</th>
-        <th>percent along route (precached</th>
-        <th>percent along route</th>
-        <th>scheduled time at this point</th>
-        <th>schedule deviation</th>
-      </tr>
-      {% for vp in vps %}
-      <tr>
-      <td>{{vp.data_time}}</td>
-      <td><a href="http://maps.google.com/maps?q={{vp.latitude}},{{vp.longitude}}">({{vp.latitude}},{{vp.longitude}})</a>
-      <td>{{vp.percent_along_trip}}</td>
-      <td>{{vp.percent_along_route}}</td>
-      <td>{{vp.scheduled_time_str}}</td>
-      <td>{{vp.sched_deviation}}</td>
-      </td>
-      <tr>
-      {% endfor %}
-    </table>
+    {% for start_date in start_dates %}
+      <a href="{% url run trip.trip_id start_date.start_date %}">{{start_date.start_date}}</a> - {{start_date.ct}}<br>
+    {% endfor %}
   </body>
 </html>

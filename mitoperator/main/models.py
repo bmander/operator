@@ -197,6 +197,7 @@ class Trip( models.Model ):
     direction_id = models.CharField( max_length = 200 )
     block_id = models.CharField( max_length = 200 )
     shape_id = models.CharField( max_length = 200 )
+    stop_pattern = models.IntegerField()
     
     @property
     def shape_points(self):

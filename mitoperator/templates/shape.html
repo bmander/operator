@@ -1,0 +1,13 @@
+<html>
+  <body>
+    <p>
+    <a href="http://maps.google.com/maps?q=http://operator.media.mit.edu{% url shape shape_id%}?format=kml">google map</a>
+    </p>
+
+    <p>
+    {% for start_date in start_dates %}
+    <a href="{% url run start_date.trip__pk start_date.start_date%}">{{start_date.trip__pk}} on {{start_date.start_date}}</a><br>
+    {% endfor %}
+    </p>
+  </body>
+</html>

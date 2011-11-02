@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.db.models import Count, Avg
-from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate, StopTime
+from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate, StopTime, ShapePoint
 from datetime import date, datetime, timedelta
 from time import time
 
@@ -94,7 +94,7 @@ def gpsdeviations( request ):
         stoptimes = trip.stoptime_set.all().order_by("departure_time")
 
         shape = trip.shape
-        set_vehicle_position_deviation_metatdata( vps, shape, stoptimes )
+        set_vehicle_position_deviation_metadata( vps, shape, stoptimes )
 
         for vp in vps:
             key = (vp.start_date, vp.trip_id)
@@ -152,7 +152,7 @@ def time_at_percent_along_route( stoptimes, percent_along_route ):
 
 
 from shapely.geometry import Point
-def set_vehicle_position_deviation_metatdata( vps, shape, stoptimes ):
+def set_vehicle_position_deviation_metadata( vps, shape, stoptimes ):
     # adds a 'sched_deviation' property to each vehicle position in 'vps'
     # in the process it writes all over all vps and stoptime instances
 
@@ -176,14 +176,31 @@ def trip(request, trip_id):
 
     stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
 
-    stus = trip.stoptimeupdate_set.all().order_by('data_timestamp')
+    stu_count = trip.stoptimeupdate_set.all().count()
 
-    vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+    start_dates = VehicleUpdate.objects.all().filter(trip__pk=trip_id).values('start_date').distinct().order_by('start_date').annotate(ct=Count("start_date"))
 
+    return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stu_count':stu_count, 'start_dates':start_dates} )
+
+def run(request, trip_id, start_date):
+    vps = VehicleUpdate.objects.all().filter(trip__pk=trip_id, start_date=start_date).order_by('data_timestamp')
+
+    trip = vps[0].trip
+    stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
     shape = trip.shape
-    set_vehicle_position_deviation_metatdata( vps, shape, stoptimes )
+    set_vehicle_position_deviation_metadata( vps, shape, stoptimes )
 
-    return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stus':stus, 'vps':vps} )
+    return render_to_response( 'run.html', {'vps':vps} )
+
+def shape(request, shape_id):
+    points = ShapePoint.shape_points( shape_id )
+
+    start_dates = VehicleUpdate.objects.all().filter(trip__shape_id=shape_id).values('trip__pk','start_date').distinct().order_by('trip__pk','start_date')
+
+    if request.GET.get('format')=='kml':
+        return render_to_response( "shape.kml", {'points':points,'shape_id':shape_id}, mimetype="text/plain" )
+        
+    return render_to_response( "shape.html", {'points':points,'shape_id':shape_id,'start_dates':start_dates} )
 
 def recent(request):
     stus = StopTimeUpdate.objects.all().order_by("-data_timestamp")[:500]

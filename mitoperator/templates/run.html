@@ -1,0 +1,22 @@
+
+    <table>
+      <tr>
+        <th>data time</th>
+        <th>position</th>
+        <th>percent along route (precached</th>
+        <th>percent along route</th>
+        <th>scheduled time at this point</th>
+        <th>schedule deviation</th>
+      </tr>
+      {% for vp in vps %}
+      <tr>
+      <td>{{vp.data_time}}</td>
+      <td><a href="http://maps.google.com/maps?q={{vp.latitude}},{{vp.longitude}}">({{vp.latitude}},{{vp.longitude}})</a>
+      <td>{{vp.percent_along_trip}}</td>
+      <td>{{vp.percent_along_route}}</td>
+      <td>{{vp.scheduled_time_str}}</td>
+      <td>{{vp.sched_deviation}}</td>
+      </td>
+      <tr>
+      {% endfor %}
+    </table>
