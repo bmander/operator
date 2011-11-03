@@ -9,6 +9,8 @@ from shapely.geometry import Point, LineString
 
 import json
 
+from util import build_datetime
+
 def home(req):
     #n = StopTimeUpdate.objects.all().count()
     n = None
@@ -25,28 +27,6 @@ def home(req):
 
     #"""%(n,n_trips, recent_count, delay['arrival_delay__avg']/60.0) )
     return render_to_response( "home.html", {'n':n, 'last_update_dt':last_update_dt } )
-
-def gtfs_timestr( time ):
-    return "%02d:%02d:%02d"%((time/3600),(time%3600)/60,time%60)
-
-def build_datetime( datestr, timesecs ):
-    # datestr is a date string like "20112901" and timesecs is the number of seconds since midnight on that date
-        
-    hh = int(timesecs)/3600
-    mm = (int(timesecs)%3600)/60
-    ss = int(timesecs)%60
-    us = int((timesecs%1)*1e6)
-    year = int(datestr[0:4])
-    month = int(datestr[4:6])
-    day = int(datestr[6:])
-
-    #sometimes trip_start_hh is greater than 23
-    extra_days = hh/24
-    hh = hh%24
-    ret = datetime( year, month, day, hh, mm, ss, us )
-    ret += timedelta(days=extra_days)
-
-    return ret
 
 def deviationrecords( request ):
 
@@ -105,7 +85,7 @@ def gpsdeviations( request ):
         shape = trip.shape
 
         for run in runs:
-            set_vehicle_position_deviation_metadata( run.vps, shape, stoptimes )
+            run.set_vehicle_position_deviation_metadata( shape, stoptimes )
 
         for run in runs:
             buckets[(run.start_date, run.trip_id)] = [(vp.percent_along_route,vp.sched_deviation) for vp in run.vps]
@@ -113,7 +93,7 @@ def gpsdeviations( request ):
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 
 def stops(request):
-    stops = Stop.objects.all()
+    stops = Stop.objects.all().select_related( 'trip' )
 
     return render_to_response( "stops.html", {'stops':stops} )
 
@@ -135,107 +115,13 @@ def stop(request, stop_id):
         elif int(sp_except.exception_type) == 2:
             sps.remove( sp_except.service_period.service_id )
 
-    stoptimes = stop.stoptime_set.all().filter(trip__service_period__service_id__in = sps).order_by('departure_time')
+    stoptimes = stop.stoptime_set.all().filter(trip__service_period__service_id__in = sps).order_by('departure_time').select_related( 'trip' )
 
     return render_to_response( "stop.html", {'stop':stop, 'stoptimes':stoptimes} )
 
 def cons(ary):
     for i in range(len(ary)-1):
         yield ary[i], ary[i+1]
-
-def time_at_percent_along_route( stoptimes, percent_along_route ):
-    stoptimes = list(stoptimes)
-    if percent_along_route <= stoptimes[0].percent_along_route:
-        return stoptimes[0].departure_time 
-    if percent_along_route >= stoptimes[-1].percent_along_route:
-        return stoptimes[-1].arrival_time
-    for st1, st2 in cons( stoptimes ):
-        if st1.percent_along_route <= percent_along_route and \
-           st2.percent_along_route > percent_along_route:
-            aa = (percent_along_route - st1.percent_along_route)/(st2.percent_along_route-st1.percent_along_route)
-            return st1.arrival_time + (st2.arrival_time-st1.arrival_time)*aa
-
-    raise Exception( "%s is not between two stoptimes %s"%(percent_along_route, [stoptime.percent_along_route for stoptime in stoptimes]) )
-
-def trim_linestring( linestring, start ):
-    """start is non-normalized distance along linestring"""
-
-    retcoords = []
-    s0 = linestring.interpolate( start )
-    retcoords.append( (s0.x, s0.y) )
-
-    for i, coord in enumerate( linestring.coords ):
-        if linestring.project( Point( coord ) ) > start:
-            retcoords.extend( list(linestring.coords)[i:] )
-            break
-   
-    return LineString( retcoords )
-
-def optimistic_project( linestring, point, normalized=False ):
-    strlen = linestring.length
-
-    segments = [LineString(pair) for pair in cons( linestring.coords )]
-
-    curs = 0.0
-    for s1, s2 in cons( segments ):
-        if s1.distance( point ) < s2.distance( point ):
-            ret = curs + s1.project( point )
-            return ret/strlen if normalized else ret
-        
-        curs += s1.length
-
-    ret = curs + s2.project( point )
-    return ret/strlen if normalized else ret
-
-def progressive_project( linestring, points, normalized=False ):
-    """Assuming the linestring and points run in the same direction, project points along the line. The idea here is to gracefully handle loops in the linestring."""
-
-    strlen = linestring.length
-
-    curs=0.0
-    for point in points:
-        substring = trim_linestring( linestring, curs )
-        curs += optimistic_project( substring, point )
-        yield curs/strlen if normalized else curs
-
-def pro_progressive_project( linestring, points ):
-    strlen = linestring.length
-
-    segments = [LineString(pair) for pair in cons( linestring.coords )]
-
-    curs = 0.0
-    seg = 0
-    
-    for point in points:
-
-        for s1, s2 in cons( segments[seg:] ):
-            if s1.distance( point ) <= s2.distance( point ):
-                yield (curs + s1.project( point ))/strlen
-                break
-
-            curs += s1.length
-            seg += 1
-        else:
-            yield (curs + s2.project( point ))/strlen
-        
-
-def set_vehicle_position_deviation_metadata( vps, shape, stoptimes ):
-    # adds a 'sched_deviation' property to each vehicle position in 'vps'
-    # in the process it writes all over all vps and stoptime instances
-
-    #for stoptime, projection in zip( stoptimes, projections ):
-    for stoptime in stoptimes:
-        stoptime.percent_along_route = shape.project( stoptime.stop.shape, normalized=True )
-
-    for vp in vps:
-        vp.percent_along_route = shape.project( vp.shape, normalized=True )
-        vp.scheduled_time =  time_at_percent_along_route( stoptimes, vp.percent_along_route ) # seconds since midnight; can go over 24 hours
-        vp.scheduled_time_str = gtfs_timestr( vp.scheduled_time )
-
-        scheduled_time_dt = build_datetime( vp.start_date, vp.scheduled_time )
-         
-        scheddiff  = vp.data_time - scheduled_time_dt
-        vp.sched_deviation = scheddiff.days*3600*24 + scheddiff.seconds + scheddiff.microseconds/1.0e6
 
 def trip(request, trip_id):
     trip = Trip.objects.get( trip_id=trip_id )
@@ -256,7 +142,7 @@ def run(request, trip_id, start_date):
     trip = run.trip
     stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
     shape = trip.shape
-    set_vehicle_position_deviation_metadata( run.vps, shape, stoptimes )
+    run.set_vehicle_position_deviation_metadata( shape, stoptimes )
 
     return render_to_response( 'run.html', {'vps':run.vps} )
 

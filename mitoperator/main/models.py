@@ -1,6 +1,8 @@
 from django.db import models
 from datetime import datetime
 
+from util import build_datetime, gtfs_timestr
+
 # Create your models here.
 
 class Info( models.Model ):
@@ -46,6 +48,10 @@ class StopTimeUpdate(models.Model):
 
         return ret;
 
+def cons(ary):
+    for i in range(len(ary)-1):
+        yield ary[i], ary[i+1]
+
 class Run:
     """a collection of vehicle updates with the same trip_id and start_date"""
 
@@ -60,6 +66,37 @@ class Run:
     @property
     def trip(self):
         return Trip.objects.get(trip_id=self.trip_id)
+
+    def _time_at_percent_along_route( self, stoptimes, percent_along_route ):
+        stoptimes = list(stoptimes)
+        if percent_along_route <= stoptimes[0].percent_along_route:
+            return stoptimes[0].departure_time 
+        if percent_along_route >= stoptimes[-1].percent_along_route:
+            return stoptimes[-1].arrival_time
+        for st1, st2 in cons( stoptimes ):
+            if st1.percent_along_route <= percent_along_route and \
+               st2.percent_along_route > percent_along_route:
+                aa = (percent_along_route - st1.percent_along_route)/(st2.percent_along_route-st1.percent_along_route)
+                return st1.arrival_time + (st2.arrival_time-st1.arrival_time)*aa
+
+        raise Exception( "%s is not between two stoptimes %s"%(percent_along_route, [stoptime.percent_along_route for stoptime in stoptimes]) )
+
+    def set_vehicle_position_deviation_metadata( self, shape, stoptimes ):
+        # adds a 'sched_deviation' property to each vehicle position in 'vps'
+        # in the process it writes all over all vps and stoptime instances
+
+        for stoptime in stoptimes:
+            stoptime.percent_along_route = shape.project( stoptime.stop.shape, normalized=True )
+
+        for vp in self.vps:
+            vp.percent_along_route = shape.project( vp.shape, normalized=True )
+            vp.scheduled_time = self._time_at_percent_along_route( stoptimes, vp.percent_along_route ) # seconds since midnight; can go over 24 hours
+            vp.scheduled_time_str = gtfs_timestr( vp.scheduled_time )
+
+            scheduled_time_dt = build_datetime( vp.start_date, vp.scheduled_time )
+             
+            scheddiff  = vp.data_time - scheduled_time_dt
+            vp.sched_deviation = scheddiff.days*3600*24 + scheddiff.seconds + scheddiff.microseconds/1.0e6
 
 class VehicleUpdate(models.Model):
     trip = models.ForeignKey("Trip", db_column="trip_id", null=True)
