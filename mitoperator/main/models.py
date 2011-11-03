@@ -228,18 +228,7 @@ class Trip( models.Model ):
 
     @property
     def trip_runs( self ):
-        vps = self.vehicleupdate_set.all().order_by('data_timestamp')
-        if len(vps)==0:
-            return []
-
-        buckets = {}
-        for vp in vps:
-            key = (vp.start_date, vp.trip_id)
-            if key not in buckets:
-                buckets[key] = []
-
-            buckets[(vp.start_date, vp.trip_id)].append( vp )
-        return buckets.values()
+        return VehicleUpdate.runs( trip_id=self.trip_id )
 
     #derived column
     start_time = models.IntegerField(null=True) #the departure time of the first stoptime in this trip

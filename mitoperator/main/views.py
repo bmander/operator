@@ -100,19 +100,15 @@ def gpsdeviations( request ):
         if len(vps)==0:
             continue
 
-        runs = group( vps, lambda x: (x.start_date, x.trip_id) )
+        runs = trip.trip_runs
         stoptimes = trip.stoptime_set.all().order_by("departure_time")
         shape = trip.shape
 
-        for run in runs.values():
-            set_vehicle_position_deviation_metadata( run, shape, stoptimes )
+        for run in runs:
+            set_vehicle_position_deviation_metadata( run.vps, shape, stoptimes )
 
-        for vp in vps:
-            key = (vp.start_date, vp.trip_id)
-            if key not in buckets:
-                buckets[key] = []
-
-            buckets[(vp.start_date, vp.trip_id)].append( (vp.percent_along_route,vp.sched_deviation) )
+        for run in runs:
+            buckets[(run.start_date, run.trip_id)] = [(vp.percent_along_route,vp.sched_deviation) for vp in run.vps]
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 
