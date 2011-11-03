@@ -5,6 +5,8 @@ from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodExcep
 from datetime import date, datetime, timedelta
 from time import time
 
+from shapely.geometry import Point, LineString
+
 import json
 
 def home(req):
@@ -74,6 +76,14 @@ def deviationrecords( request ):
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" )
 
+def group( ary, key ):
+    ret = {}
+    for item in ary:
+        if key(item) not in ret:
+            ret[key(item)] = []
+        ret[key(item)].append( item )
+    return ret
+
 def gpsdeviations( request ):
     buckets = {}
 
@@ -89,12 +99,13 @@ def gpsdeviations( request ):
         vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
         if len(vps)==0:
             continue
-        #print trip.trip_id
 
+        runs = group( vps, lambda x: (x.start_date, x.trip_id) )
         stoptimes = trip.stoptime_set.all().order_by("departure_time")
-
         shape = trip.shape
-        set_vehicle_position_deviation_metadata( vps, shape, stoptimes )
+
+        for run in runs.values():
+            set_vehicle_position_deviation_metadata( run, shape, stoptimes )
 
         for vp in vps:
             key = (vp.start_date, vp.trip_id)
@@ -150,17 +161,78 @@ def time_at_percent_along_route( stoptimes, percent_along_route ):
 
     raise Exception( "%s is not between two stoptimes %s"%(percent_along_route, [stoptime.percent_along_route for stoptime in stoptimes]) )
 
+def trim_linestring( linestring, start ):
+    """start is non-normalized distance along linestring"""
 
-from shapely.geometry import Point
+    retcoords = []
+    s0 = linestring.interpolate( start )
+    retcoords.append( (s0.x, s0.y) )
+
+    for i, coord in enumerate( linestring.coords ):
+        if linestring.project( Point( coord ) ) > start:
+            retcoords.extend( list(linestring.coords)[i:] )
+            break
+   
+    return LineString( retcoords )
+
+def optimistic_project( linestring, point, normalized=False ):
+    strlen = linestring.length
+
+    segments = [LineString(pair) for pair in cons( linestring.coords )]
+
+    curs = 0.0
+    for s1, s2 in cons( segments ):
+        if s1.distance( point ) < s2.distance( point ):
+            ret = curs + s1.project( point )
+            return ret/strlen if normalized else ret
+        
+        curs += s1.length
+
+    ret = curs + s2.project( point )
+    return ret/strlen if normalized else ret
+
+def progressive_project( linestring, points, normalized=False ):
+    """Assuming the linestring and points run in the same direction, project points along the line. The idea here is to gracefully handle loops in the linestring."""
+
+    strlen = linestring.length
+
+    curs=0.0
+    for point in points:
+        substring = trim_linestring( linestring, curs )
+        curs += optimistic_project( substring, point )
+        yield curs/strlen if normalized else curs
+
+def pro_progressive_project( linestring, points ):
+    strlen = linestring.length
+
+    segments = [LineString(pair) for pair in cons( linestring.coords )]
+
+    curs = 0.0
+    seg = 0
+    
+    for point in points:
+
+        for s1, s2 in cons( segments[seg:] ):
+            if s1.distance( point ) <= s2.distance( point ):
+                yield (curs + s1.project( point ))/strlen
+                break
+
+            curs += s1.length
+            seg += 1
+        else:
+            yield (curs + s2.project( point ))/strlen
+        
+
 def set_vehicle_position_deviation_metadata( vps, shape, stoptimes ):
     # adds a 'sched_deviation' property to each vehicle position in 'vps'
     # in the process it writes all over all vps and stoptime instances
 
+    #for stoptime, projection in zip( stoptimes, projections ):
     for stoptime in stoptimes:
         stoptime.percent_along_route = shape.project( stoptime.stop.shape, normalized=True )
 
     for vp in vps:
-        vp.percent_along_route = shape.project( Point(vp.longitude, vp.latitude), normalized=True )
+        vp.percent_along_route = shape.project( vp.shape, normalized=True )
         vp.scheduled_time =  time_at_percent_along_route( stoptimes, vp.percent_along_route ) # seconds since midnight; can go over 24 hours
         vp.scheduled_time_str = gtfs_timestr( vp.scheduled_time )
 
@@ -183,14 +255,14 @@ def trip(request, trip_id):
     return render_to_response( "trip.html", {'trip':trip, 'holidays':holidays, 'also':also, 'stoptimes':stoptimes, 'stu_count':stu_count, 'start_dates':start_dates} )
 
 def run(request, trip_id, start_date):
-    vps = VehicleUpdate.objects.all().filter(trip__pk=trip_id, start_date=start_date).order_by('data_timestamp')
+    run = VehicleUpdate.runs( trip_id, start_date )[0]
 
-    trip = vps[0].trip
+    trip = run.trip
     stoptimes = trip.stoptime_set.all().order_by('departure_time').select_related( 'stop' )
     shape = trip.shape
-    set_vehicle_position_deviation_metadata( vps, shape, stoptimes )
+    set_vehicle_position_deviation_metadata( run.vps, shape, stoptimes )
 
-    return render_to_response( 'run.html', {'vps':vps} )
+    return render_to_response( 'run.html', {'vps':run.vps} )
 
 def shape(request, shape_id):
     points = ShapePoint.shape_points( shape_id )
@@ -260,11 +332,11 @@ def find_stddev( ary ):
 def stoptime( request, id ):
     stoptime = StopTime.objects.get(pk=id)
 
-    trip_instances = VehicleUpdate.trip_instances( stoptime.trip_id )
+    runs = VehicleUpdate.runs( stoptime.trip_id )
   
     events = []
-    for trip_instance in trip_instances:
-        for vu1, vu2 in cons( trip_instance ):
+    for run in runs:
+        for vu1, vu2 in cons( run.vps ):
             if vu1.percent_along_trip <= stoptime.percent_along_trip and \
                vu2.percent_along_trip >= stoptime.percent_along_trip:
                 dt = vu2.data_timestamp - vu1.data_timestamp

@@ -46,6 +46,21 @@ class StopTimeUpdate(models.Model):
 
         return ret;
 
+class Run:
+    """a collection of vehicle updates with the same trip_id and start_date"""
+
+    def __init__(self, trip_id, start_date):
+        self.trip_id = trip_id
+        self.start_date = start_date
+        self.vps = []
+
+    def add(self, vp):
+        self.vps.append( vp ) 
+
+    @property
+    def trip(self):
+        return Trip.objects.get(trip_id=self.trip_id)
+
 class VehicleUpdate(models.Model):
     trip = models.ForeignKey("Trip", db_column="trip_id", null=True)
     start_date = models.CharField(max_length=200, null=True)
@@ -69,15 +84,19 @@ class VehicleUpdate(models.Model):
         return Point( self.longitude, self.latitude )
 
     @classmethod
-    def trip_instances(cls, trip_id):
-        trip_vehicle_updates = cls.objects.all().filter(trip__pk=trip_id).order_by('data_timestamp')
+    def runs(cls, trip_id, start_date=None):
+        filters = {}
+        filters['trip__pk']=trip_id
+        if start_date is not None:
+            filters['start_date']=start_date
+        trip_vehicle_updates = cls.objects.all().filter(**filters).order_by('data_timestamp')
 
         ret = {}
         for vehicle_update in trip_vehicle_updates:
             if vehicle_update.start_date not in ret:
-                ret[vehicle_update.start_date] = []
+                ret[vehicle_update.start_date] = Run( trip_id, vehicle_update.start_date )
 
-            ret[vehicle_update.start_date].append( vehicle_update )
+            ret[vehicle_update.start_date].add( vehicle_update )
 
         return ret.values()
 
