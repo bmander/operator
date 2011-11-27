@@ -9,7 +9,7 @@ from shapely.geometry import Point, LineString
 
 import json
 
-from util import build_datetime
+from util import build_datetime, Measurer
 
 def home(req):
     #n = StopTimeUpdate.objects.all().count()
@@ -89,6 +89,39 @@ def gpsdeviations( request ):
 
         for run in runs:
             buckets[(run.start_date, run.trip_id)] = [(vp.percent_along_route,vp.sched_deviation) for vp in run.vps]
+
+    return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
+
+def gpsdistances( request ):
+    buckets = {}
+
+    if 'trip_id' in request.GET:
+        trips = [Trip.objects.get(trip_id=request.GET['trip_id'])]
+    elif 'shape_id' in request.GET:
+        trips = Trip.objects.all().filter(shape_id=request.GET['shape_id'])
+    else:
+        trips = []
+
+    measurer = Measurer()
+
+    for trip in trips:
+
+        vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+        if len(vps)==0:
+            continue
+
+        runs = trip.trip_runs
+        shape = trip.shape
+
+        shapelen = measurer.measure( trip.shape )
+
+        first_stoptime = trip.stoptime_set.all().order_by("stop_sequence")[0]
+
+        for run in runs:
+            run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
+
+        for run in runs:
+            buckets[(run.start_date, run.trip_id)] = [(vp.time_since_start, vp.data_timestamp,vp.dist_along_route,vp.percent_along_route) for vp in run.vps]
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 

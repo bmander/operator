@@ -23,3 +23,19 @@ def build_datetime( datestr, timesecs ):
 
     return ret
 
+def cons(ary):
+    for i in range(len(ary)-1):
+        yield ary[i], ary[i+1]
+
+from pyproj import Geod
+
+class Measurer:
+    def __init__(self, ellps="clrk66"):
+        self.geod = Geod( ellps=ellps )
+
+    def measure(self, shape):
+        ret = 0
+        for pt1, pt2 in cons( shape.coords ):
+            azm1, azm2, dist = self.geod.inv( pt1[0], pt1[1], pt2[0], pt2[1] )
+            ret += dist
+        return ret

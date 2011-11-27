@@ -98,6 +98,17 @@ class Run:
             scheddiff  = vp.data_time - scheduled_time_dt
             vp.sched_deviation = scheddiff.days*3600*24 + scheddiff.seconds + scheddiff.microseconds/1.0e6
 
+    def set_vehicle_dist_along_route( self, shape, shapelen, first_stoptime ):
+
+        scheduled_start_dt = build_datetime( self.start_date, first_stoptime.departure_time )
+
+        for vp in self.vps:
+            scheddiff  = vp.data_time - scheduled_start_dt
+            vp.time_since_start = scheddiff.days*3600*24 + scheddiff.seconds + scheddiff.microseconds/1.0e6
+
+            vp.percent_along_route = shape.project( vp.shape, normalized=True )
+            vp.dist_along_route = vp.percent_along_route*shapelen
+
 class VehicleUpdate(models.Model):
     trip = models.ForeignKey("Trip", db_column="trip_id", null=True)
     start_date = models.CharField(max_length=200, null=True)
