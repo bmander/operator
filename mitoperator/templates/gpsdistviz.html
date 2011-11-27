@@ -1,0 +1,140 @@
+<html>
+<head>
+  <script src="/js/processing.js"></script>
+  <script src="/js/jquery.js"></script>
+  </head>
+  <h2>schedule deviation</h2>
+  <p><canvas id="canvas1" width="400" height="400"></canvas></p>
+
+  <h3>shapes</h3>
+  {% for shape in shapes %}
+    <span id="shape{{shape}}" style="background-color:{% if forloop.counter|divisibleby:2%}#ffbbbb{% else %}#bbbbff{% endif %}">{{shape}}</span>
+  {% endfor %}
+  <h3>trips</h3>
+  <ul>
+  {% for trip in trips %}
+    <li id="trip{{trip.trip_id}}">{{trip.trip_id}} {{trip.trip_headsign}} {{trip.service_period}} {{trip.shape_id}}</li>
+  {% endfor %}
+  </ul>
+
+  <script id="script1" type="text/javascript">
+
+  $(document).ready(function(){
+
+  // Simple way to attach js code to the canvas is by using a function
+  function sketchProc(processing) {
+
+    processing.setup = function() {
+      processing.size( 1200,600 );
+    }
+
+    // Override draw function, by default it will be called 60 times per second
+    processing.draw = function() {
+    };
+                                                                                                          
+  }
+
+  var canvas = document.getElementById("canvas1");
+  // attaching the sketchProc function to the canvas
+  var p = new Processing(canvas, sketchProc);
+  p.background( 250 );
+
+  var onclickme = function(eventdata) {
+    $.getJSON(eventdata.data.url, function(data) {
+
+        // find global min and global max
+        mintime = 1000000;
+        maxtime = -1000000;
+        mindist = 1000000;
+        maxdist = -1000000;
+
+        $.each( data, function( key, val ) {
+
+          ptlist = val[1];
+          for(var i=0; i< ptlist.length-1; i++) {
+            pt1 = ptlist[i];
+            pt2 = ptlist[i+1];
+
+            time1 = pt1[0];
+            dist1 = pt1[2];
+            time2 = pt2[0];
+            dist2 = pt2[2];
+
+            if( time1 < mintime ) {
+                mintime = time1;
+            }
+            if( time2 > maxtime ) {
+                maxtime = time2;
+            }
+            if( dist1 < mindist ) {
+                mindist = dist1;
+            }
+            if( dist2 > maxdist ) {
+                maxdist = dist2;
+            }
+          }
+        } );
+
+        // scale the canvas
+        xres = p.width/(maxdist-mindist);
+        yres = p.height/(maxtime-mintime);
+
+        p.scale( xres, -yres );
+        p.translate( -mindist, -maxtime );
+
+        // set up the tick marks
+        p.stroke( 255, 0, 0 );
+        // axes
+        p.line(mindist, 0, maxdist, 0);
+        p.line(mindist, mintime, mindist, maxtime);
+
+        // distance ticks
+        distspace = (maxdist-mindist)/20;
+        for(var x=mindist; x<=maxdist; x+=distspace){
+          p.line( x, 0, x, 50 );
+        }
+        // time ticks
+        timespace = (maxtime-mintime)/20;
+        for(var y=0; y<=maxtime; y+=timespace){
+          p.line( mindist, y, mindist+50, y );
+        }
+
+        // draw the timelines
+        p.stroke( 0 );
+        $.each( data, function( key, val ) {
+
+          ptlist = val[1];
+          for(var i=0; i< ptlist.length-1; i++) {
+            pt1 = ptlist[i];
+            pt2 = ptlist[i+1];
+
+            time1 = pt1[0];
+            dist1 = pt1[2];
+            time2 = pt2[0];
+            dist2 = pt2[2];
+            p.line( dist1, time1, dist2, time2 );
+          }
+        } );
+        
+    } )
+  } 
+
+  p.stroke( 0 );
+
+  {% for trip in trips %}
+  $("#trip{{trip.trip_id}}").click({url:'{% url gpsdistances %}?trip_id={{trip.trip_id}}'}, onclickme )
+  {% endfor %}
+
+  {% for shape in shapes %}
+  $("#shape{{shape}}").click({url:'{% url gpsdistances %}?shape_id={{shape}}'}, onclickme )
+  {% endfor %}
+
+  // p.exit(); to detach it
+  
+  });
+  
+  </script>
+
+<div style="height:0px;width:0px;overflow:hidden;"></div>
+
+

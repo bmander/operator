@@ -223,6 +223,23 @@ def gpsviz( request ):
 
     return render_to_response( "gpsviz.html",  {'trips':trips, 'shapes':shapes} )
 
+def gpsdistviz( request ):
+    trips = []
+    shapes = []
+
+    if 'trip_id' in request.GET:
+        trips = [ Trip.objects.get( trip_id=request.GET['trip_id'] ) ]
+        shapes = [ trips[0].shape_id ]
+
+    if 'route_id' in request.GET:
+        route = Route.objects.get(route_id=request.GET['route_id'])
+        shapes = set()
+        for trip in route.trip_set.all().order_by('shape_id', 'trip_headsign', 'service_period'):
+            trips.append( trip )
+            shapes.add( trip.shape_id )
+
+    return render_to_response( "gpsdistviz.html",  {'trips':trips, 'shapes':shapes} )
+
 def routes( request ):
     routes = Route.objects.all()
 
