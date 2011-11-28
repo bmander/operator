@@ -50,7 +50,7 @@
 
         $.each( data, function( key, val ) {
 
-          ptlist = val[1];
+          ptlist = val[1][0];
           for(var i=0; i< ptlist.length-1; i++) {
             pt1 = ptlist[i];
             pt2 = ptlist[i+1];
@@ -89,12 +89,12 @@
         p.line(mindist, mintime, mindist, maxtime);
 
         // distance ticks
-        distspace = (maxdist-mindist)/20;
+        distspace = 40;
         for(var x=mindist; x<=maxdist; x+=distspace){
           p.line( x, 0, x, 50 );
         }
         // time ticks
-        timespace = (maxtime-mintime)/20;
+        timespace = 60;
         for(var y=0; y<=maxtime; y+=timespace){
           p.line( mindist, y, mindist+50, y );
         }
@@ -103,7 +103,7 @@
         p.stroke( 0 );
         $.each( data, function( key, val ) {
 
-          ptlist = val[1];
+          ptlist = val[1][0];
           for(var i=0; i< ptlist.length-1; i++) {
             pt1 = ptlist[i];
             pt2 = ptlist[i+1];

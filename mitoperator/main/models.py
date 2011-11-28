@@ -135,18 +135,22 @@ class Run:
                 yield vp
                 last_dist = vp[2]
 
-    def get_dist_speed( self, resolution=20 ):
+    def get_dist_speed( self, resolution=40 ):
         # make sure to sun set_vehicle_dist_along_route beforehand
 
-        x1 = self.vps[0].dist_along_route
-        t1 = self.vps[0].time_since_start
+        vps = [(time_since_start, dist_along_route) for time_since_start, data_timestamp, dist_along_route, percent_along_route in self.clean_vehicle_position_stream()]
+
+        t1, x1 = vps[0]
         x2 = x1+resolution
-        for vp1, vp2 in cons( self.vps ):
-            dx = (vp2.dist_along_route-vp1.dist_along_route)
-            dt = (vp2.time_since_start-vp1.time_since_start)
+        for (vp1_t, vp1_x), (vp2_t, vp2_x) in cons( vps ):
+            dx = (vp2_x-vp1_x)
+            dt = (vp2_t-vp1_t)
+            if dt==0:
+                continue
+
             speed = dx/dt
-            while x2 < vp2.dist_along_route:
-                t2 = ((x2-vp1.dist_along_route)/dx)*dt + vp1.time_since_start
+            while x2 < vp2_x:
+                t2 = ((x2-vp1_x)/dx)*dt + vp1_t
 
                 yield (x2+x1)/2, (x2-x1)/(t2-t1)
 

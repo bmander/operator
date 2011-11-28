@@ -121,7 +121,7 @@ def gpsdistances( request ):
             run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
 
         for run in runs:
-            buckets[(run.start_date, run.trip_id)] = list(run.clean_vehicle_position_stream())
+            buckets[(run.start_date, run.trip_id)] = [list(run.clean_vehicle_position_stream()),list(run.get_dist_speed())]
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 
