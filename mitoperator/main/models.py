@@ -109,6 +109,26 @@ class Run:
             vp.percent_along_route = shape.project( vp.shape, normalized=True )
             vp.dist_along_route = vp.percent_along_route*shapelen
 
+    def get_dist_speed( self, resolution=20 ):
+        # make sure to sun set_vehicle_dist_along_route beforehand
+
+        x1 = self.vps[0].dist_along_route
+        t1 = self.vps[0].time_since_start
+        x2 = x1+resolution
+        for vp1, vp2 in cons( self.vps ):
+            dx = (vp2.dist_along_route-vp1.dist_along_route)
+            dt = (vp2.time_since_start-vp1.time_since_start)
+            speed = dx/dt
+            while x2 < vp2.dist_along_route:
+                t2 = ((x2-vp1.dist_along_route)/dx)*dt + vp1.time_since_start
+
+                yield (x2+x1)/2, (x2-x1)/(t2-t1)
+
+                x1 = x2
+                t1 = t2
+                x2 = x1+resolution
+
+
 class VehicleUpdate(models.Model):
     trip = models.ForeignKey("Trip", db_column="trip_id", null=True)
     start_date = models.CharField(max_length=200, null=True)

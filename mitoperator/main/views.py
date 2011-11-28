@@ -9,7 +9,7 @@ from shapely.geometry import Point, LineString
 
 import json
 
-from util import build_datetime, Measurer
+from util import build_datetime, Measurer, clean_vehicle_position_stream
 
 def home(req):
     #n = StopTimeUpdate.objects.all().count()
@@ -121,7 +121,7 @@ def gpsdistances( request ):
             run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
 
         for run in runs:
-            buckets[(run.start_date, run.trip_id)] = [(vp.time_since_start, vp.data_timestamp,vp.dist_along_route,vp.percent_along_route) for vp in run.vps]
+            buckets[(run.start_date, run.trip_id)] = list(clean_vehicle_position_stream(run))
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 
