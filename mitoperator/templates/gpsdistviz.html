@@ -57,6 +57,8 @@
   var onclickme = function(eventdata) {
     $.getJSON(eventdata.data.url, function(data) {
 
+        trip_data = data[0];
+
         // find global min and global max
         mintime = 1000000;
         maxtime = -1000000;
@@ -66,9 +68,9 @@
         minspeed = 0;
         maxspeed = 26;
 
-        $.each( data, function( key, val ) {
+        $.each( trip_data.run_data, function( key, val ) {
 
-          ptlist = val[1][0];
+          ptlist = val[1];
           for(var i=0; i< ptlist.length-1; i++) {
             pt1 = ptlist[i];
             pt2 = ptlist[i+1];
@@ -119,9 +121,9 @@
 
         // draw the timelines
         p.stroke( 0 );
-        $.each( data, function( key, val ) {
+        $.each( trip_data.run_data, function( key, val ) {
 
-          ptlist = val[1][0];
+          ptlist = val[1];
           for(var i=0; i< ptlist.length-1; i++) {
             pt1 = ptlist[i];
             pt2 = ptlist[i+1];
@@ -164,9 +166,9 @@
 
         // draw the speed plots
         p2.stroke( 0 );
-        $.each( data, function( key, val ) {
+        $.each( trip_data.run_data, function( key, val ) {
 
-          vs_plot = val[1][1];
+          vs_plot = val[2];
           pitch = vs_plot[0]; // distance between velocity measurements
           vs = vs_plot[1]; // plot of velocities
           for(var i=0; i< vs.length-1; i++) {

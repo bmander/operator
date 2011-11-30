@@ -99,8 +99,7 @@ def _mean(ary):
     return float(sum(ary))/len(ary)
 
 def gpsdistances( request ):
-    buckets = {}
-    mean_speeds={}
+    trip_data = []
 
     if 'trip_id' in request.GET:
         trips = [Trip.objects.get(trip_id=request.GET['trip_id'])]
@@ -112,6 +111,7 @@ def gpsdistances( request ):
     measurer = Measurer()
 
     for trip in trips:
+        run_data = []
 
         vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
         if len(vps)==0:
@@ -131,8 +131,9 @@ def gpsdistances( request ):
         run_speeds = []
         for run in runs:
             run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
-            buckets[(run.start_date, run.trip_id)] = [list(run.clean_vehicle_position_stream()),
-                                                      (resolution,run_speed)]
+            run_data.append( [run.start_date, 
+                              list(run.clean_vehicle_position_stream()),
+                              (resolution,run_speed)] )
 
             run_speeds.append( run_speed )
 
@@ -142,11 +143,10 @@ def gpsdistances( request ):
         for i in range(len(run_speeds[0])):
             col = [row[i] for row in run_speeds]
             mean_speed.append( _mean( col ) )
-        mean_speeds[trip.trip_id]=mean_speed
 
-        print mean_speed
+        trip_data.append( {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':mean_speed} )
 
-    return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
+    return HttpResponse( json.dumps( trip_data, indent=2 ), mimetype="text/plain" ) 
 
 def stops(request):
     stops = Stop.objects.all().select_related( 'trip' )
