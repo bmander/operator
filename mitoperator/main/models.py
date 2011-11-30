@@ -135,28 +135,49 @@ class Run:
                 yield vp
                 last_dist = vp[2]
 
-    def get_dist_speed( self, resolution=40 ):
+    def _resample( self, vps, x_min, x_max, resolution ):
+        x_sample = 0
+        segment_ix = 0
+        while x_sample <= x_max:
+            vp2_x=None
+            for (vp1_t, vp1_x), (vp2_t, vp2_x) in cons( vps[segment_ix:] ):
+                if x_sample < vp1_x:
+                    yield (None, x_sample)
+                    break
+
+                if x_sample >= vp1_x and x_sample < vp2_x:
+                    
+                    dx = (vp2_x-vp1_x)
+                    dt = (vp2_t-vp1_t)
+                    if dt==0:
+                        continue
+
+                    t_sample = ((x_sample-vp1_x)/dx)*dt + vp1_t
+
+                    yield (t_sample, x_sample)
+                    break
+
+                segment_ix += 1
+
+            if x_sample > vp2_x or vp2_x is None:
+                yield (None, x_sample)
+
+            x_sample += resolution
+
+
+    def get_dist_speed( self, shapelen, resolution=40 ):
         # make sure to sun set_vehicle_dist_along_route beforehand
 
         vps = [(time_since_start, dist_along_route) for time_since_start, data_timestamp, dist_along_route, percent_along_route in self.clean_vehicle_position_stream()]
 
-        t1, x1 = vps[0]
-        x2 = x1+resolution
-        for (vp1_t, vp1_x), (vp2_t, vp2_x) in cons( vps ):
-            dx = (vp2_x-vp1_x)
-            dt = (vp2_t-vp1_t)
-            if dt==0:
-                continue
+        #resample VPS at given resolution
+        resampled_vps = list(self._resample( vps, 0, shapelen, resolution ))
 
-            speed = dx/dt
-            while x2 < vp2_x:
-                t2 = ((x2-vp1_x)/dx)*dt + vp1_t
-
-                yield (x2+x1)/2, (x2-x1)/(t2-t1)
-
-                x1 = x2
-                t1 = t2
-                x2 = x1+resolution
+        for (vp1_t, vp1_x), (vp2_t, vp2_x) in cons(resampled_vps):
+            if vp1_t is None or vp2_t is None:
+                yield None
+            else:
+                yield (vp2_x-vp1_x)/(vp2_t-vp1_t)
 
 
 class VehicleUpdate(models.Model):

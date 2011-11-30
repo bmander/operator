@@ -166,16 +166,17 @@
         p2.stroke( 0 );
         $.each( data, function( key, val ) {
 
-          ptlist = val[1][1];
-          for(var i=0; i< ptlist.length-1; i++) {
-            pt1 = ptlist[i];
-            pt2 = ptlist[i+1];
+          vs_plot = val[1][1];
+          pitch = vs_plot[0]; // distance between velocity measurements
+          vs = vs_plot[1]; // plot of velocities
+          for(var i=0; i< vs.length-1; i++) {
+            v1 = vs[i];
+            v2 = vs[i+1];
 
-            dist1 = pt1[0];
-            speed1 = pt1[1];
-            dist2 = pt2[0];
-            speed2 = pt2[1];
-            p2.line( dist1, speed1*yscale, dist2, speed2*yscale );
+            d1 = i*pitch;
+            d2 = (i+1)*pitch;
+
+            p2.line( d1, v1*yscale, d2, v2*yscale );
           }
         } );
     } )

@@ -92,8 +92,15 @@ def gpsdeviations( request ):
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 
+def _mean(ary):
+    ary = filter( lambda x:x, ary )#filter out Nones
+    if len(ary)==0:
+        return None
+    return float(sum(ary))/len(ary)
+
 def gpsdistances( request ):
     buckets = {}
+    mean_speeds={}
 
     if 'trip_id' in request.GET:
         trips = [Trip.objects.get(trip_id=request.GET['trip_id'])]
@@ -120,8 +127,24 @@ def gpsdistances( request ):
         for run in runs:
             run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
 
+        resolution=40
+        run_speeds = []
         for run in runs:
-            buckets[(run.start_date, run.trip_id)] = [list(run.clean_vehicle_position_stream()),list(run.get_dist_speed())]
+            run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
+            buckets[(run.start_date, run.trip_id)] = [list(run.clean_vehicle_position_stream()),
+                                                      (resolution,run_speed)]
+
+            run_speeds.append( run_speed )
+
+        mean_speed = []
+        if len(run_speeds)==0 or len(run_speeds[0])==0:
+            continue
+        for i in range(len(run_speeds[0])):
+            col = [row[i] for row in run_speeds]
+            mean_speed.append( _mean( col ) )
+        mean_speeds[trip.trip_id]=mean_speed
+
+        print mean_speed
 
     return HttpResponse( json.dumps( buckets.items(), indent=2 ), mimetype="text/plain" ) 
 
