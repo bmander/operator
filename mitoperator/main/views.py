@@ -98,6 +98,16 @@ def _mean(ary):
         return None
     return float(sum(ary))/len(ary)
 
+def _stddev(ary, mean):
+    devsq = [(x-mean)**2 for x in ary if x is not None]
+
+    if len(devsq)==0:
+        return None
+    
+    return (float(sum(devsq))/len(devsq))**0.5
+
+from scipy.stats import gamma
+
 def gpsdistances( request ):
     trip_data = []
 
@@ -142,9 +152,11 @@ def gpsdistances( request ):
             continue
         for i in range(len(run_speeds[0])):
             col = [row[i] for row in run_speeds]
-            mean_speed.append( _mean( col ) )
+            mean = _mean(col)
+            stddev = _stddev(col, mean)
+            mean_speed.append( (mean,stddev) )
 
-        trip_data.append( {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':mean_speed} )
+        trip_data.append( {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]} )
 
     return HttpResponse( json.dumps( trip_data, indent=2 ), mimetype="text/plain" ) 
 
