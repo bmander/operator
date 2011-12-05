@@ -188,27 +188,35 @@
         pitch = trip_data.mean_speed[0]; // distance between velocity measurements
         vs = trip_data.mean_speed[1]; // plot of velocities
         for(var i=0; i< vs.length-1; i++) {
-          v1 = vs[i][0];
-          v2 = vs[i+1][0];
-
           d1 = i*pitch;
           d2 = (i+1)*pitch;
 
-          p2.strokeWeight(10);
-          p2.line( d1, v1*yscale, d2, v2*yscale );
-          
-          //one standard deviation down
-          v1 = vs[i][0]-vs[i][1];
-          v2 = vs[i+1][0]-vs[i+1][1];
-i
-          p2.strokeWeight(3);
-          p2.line( d1, v1*yscale, d2, v2*yscale );
+          // 5th percentile
+          v1 = vs[i][0];
+          v2 = vs[i+1][0];
 
-          //one standard deviation up
-          v1 = vs[i][0]+vs[i][1];
-          v2 = vs[i+1][0]+vs[i+1][1];
+          if( v1 && v2 ){
+            p2.strokeWeight(3);
+            p2.line( d1, v1*yscale, d2, v2*yscale );
+          }
+         
+          // 50th percentile
+          v1 = vs[i][1];
+          v2 = vs[i+1][1];
 
-          p2.line( d1, v1*yscale, d2, v2*yscale );
+          if( v1 && v2 ){
+            p2.strokeWeight(10);
+            p2.line( d1, v1*yscale, d2, v2*yscale );
+          }
+
+          // 95th percentile
+          v1 = vs[i][2];
+          v2 = vs[i+1][2];
+
+          if( v1 && v2 ){
+            p2.strokeWeight(3);
+            p2.line( d1, v1*yscale, d2, v2*yscale );
+          }
         }
     } )
   } 
