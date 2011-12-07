@@ -355,6 +355,10 @@ class Trip( models.Model ):
     def str(self):
         return "<Trip %s>"%self.trip_id
 
+class TripSpeedStats( models.Model ):
+    trip = models.ForeignKey( Trip )
+    stats = models.TextField() #json blob with resolution and string of gamma params
+
 class StopTime( models.Model ):
     class Meta:
         managed = False

@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.db.models import Count, Avg
-from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate, StopTime, ShapePoint
+from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate, StopTime, ShapePoint, TripSpeedStats
 from datetime import date, datetime, timedelta
 from time import time
 
@@ -148,13 +148,11 @@ def gpsdistances( request ):
             run_speeds.append( run_speed )
 
         mean_speed = []
+        fit_params = []
         if len(run_speeds)==0 or len(run_speeds[0])==0:
             continue
         for i in range(len(run_speeds[0])):
             col = [row[i] for row in run_speeds if row[i] is not None]
-            #mean = _mean(col)
-            #stddev = _stddev(col, mean)
-            #mean_speed.append( (mean,stddev) )
 
             fit_alpha, fit_loc, fit_beta = gamma.fit( col )
             fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
@@ -162,8 +160,15 @@ def gpsdistances( request ):
                       gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
             if fa and fb and fc:
                 mean_speed.append( (fa,fb,fc) )
+                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
             else:
                 mean_speed.append( (None, None, None) )
+                fit_params.append( (None, None, None) )
+
+        # stow fit params for later use
+        vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
+        vsr.stats = json.dumps( [resolution,fit_params] )
+        vsr.save()
 
         trip_data.append( {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]} )
 
