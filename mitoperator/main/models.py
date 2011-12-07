@@ -3,6 +3,8 @@ from datetime import datetime
 
 from util import build_datetime, gtfs_timestr
 
+import json
+
 # Create your models here.
 
 class Info( models.Model ):
@@ -358,6 +360,10 @@ class Trip( models.Model ):
 class TripSpeedStats( models.Model ):
     trip = models.ForeignKey( Trip )
     stats = models.TextField() #json blob with resolution and string of gamma params
+
+    @property
+    def stats_obj(self):
+        return json.loads( self.stats )
 
 class StopTime( models.Model ):
     class Meta:

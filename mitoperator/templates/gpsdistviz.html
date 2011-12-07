@@ -31,6 +31,13 @@
     // Override draw function, by default it will be called 60 times per second
     processing.draw = function() {
     };
+
+    processing.mouseClicked = function() {
+      console.log( "this is where you dispatch a request for sampled speeds from "+processing.mouseX+" forward." );
+      console.log( "note dist x res is "+xres+" pixels/meter" );
+      console.log( "which means what we're dealing with is trip meter "+processing.mouseX/xres );
+      console.log( "current trip is "+current_trip_id );
+    }
                                                                                                           
   }
 
@@ -43,6 +50,25 @@
     // Override draw function, by default it will be called 60 times per second
     processing.draw = function() {
     };
+
+    processing.mouseClicked = function() {
+      $.getJSON( '{% url speedsamples %}?trip_id='+current_trip_id, function(data) {
+        var resolution = data[0];
+        var samples = data[1];
+
+        p2.stroke( 255,0,0 );
+        p2.strokeWeight( 3 );
+        for(i=0; i<samples.length-1; i++){
+            var d1 = i*resolution;
+            var v1 = samples[i];
+            var d2 = (i+1)*resolution;
+            var v2 = samples[i+1];
+
+            p2.line( d1, v1*yscale, d2, v2*yscale );
+                
+        }
+      } );
+    }
                                                                                                           
   }
 
@@ -58,6 +84,8 @@
     $.getJSON(eventdata.data.url, function(data) {
 
         trip_data = data[0];
+
+        current_trip_id = trip_data.trip_id;
 
         // find global min and global max
         mintime = 1000000;

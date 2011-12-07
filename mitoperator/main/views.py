@@ -338,3 +338,12 @@ def stoptime( request, id ):
     #stddev = find_stddev( [x['timestamp'] for x in events] )
 
     return HttpResponse( render_to_response( "stoptime.html", {'stoptime':stoptime, 'events':events} ) )
+
+def speedsamples( request ):
+    tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
+
+    resolution, gamma_params = tripstats.stats_obj
+
+    samples = [gamma.rvs(*pp) for pp in gamma_params]
+
+    return HttpResponse( json.dumps([resolution,samples]) )

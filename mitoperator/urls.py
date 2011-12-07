@@ -23,6 +23,7 @@ urlpatterns = patterns('',
     url(r'^stoptime/(.*)$', 'main.views.stoptime', name='stoptime'),
     url(r'^shape/(.*)$', 'main.views.shape', name='shape'),
     url(r'^run/(.*)/(.*)$', 'main.views.run', name='run'),
+    url(r'^speedsamples/$', 'main.views.speedsamples', name='speedsamples'),
 
     # url(r'^$', 'mitoperator.views.home', name='home'),
     # url(r'^mitoperator/', include('mitoperator.foo.urls')),
