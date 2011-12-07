@@ -151,15 +151,19 @@ def gpsdistances( request ):
         if len(run_speeds)==0 or len(run_speeds[0])==0:
             continue
         for i in range(len(run_speeds[0])):
-            col = [row[i] for row in run_speeds]
+            col = [row[i] for row in run_speeds if row[i] is not None]
             #mean = _mean(col)
             #stddev = _stddev(col, mean)
             #mean_speed.append( (mean,stddev) )
 
-            fit_alpha, fit_loc, fit_beta = gamma.fit( [x for x in col if x is not None] )
-            mean_speed.append( (gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
-                                gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
-                                gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta) ) )
+            fit_alpha, fit_loc, fit_beta = gamma.fit( col )
+            fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
+                      gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
+                      gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+            if fa and fb and fc:
+                mean_speed.append( (fa,fb,fc) )
+            else:
+                mean_speed.append( (None, None, None) )
 
         trip_data.append( {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]} )
 
