@@ -1,6 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.db.models import Count, Avg
+from django.core.cache import cache
 from models import StopTimeUpdate, Stop, ServicePeriod, Trip, ServicePeriodException, Route, VehicleUpdate, StopTime, ShapePoint, TripSpeedStats
 from datetime import date, datetime, timedelta
 from time import time
@@ -116,7 +117,7 @@ def _collect_trip_stats( trip, measurer ):
 
     vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
     if len(vps)==0:
-        continue
+        return None
 
     runs = trip.trip_runs
     shape = trip.shape
@@ -141,7 +142,7 @@ def _collect_trip_stats( trip, measurer ):
     mean_speed = []
     fit_params = []
     if len(run_speeds)==0 or len(run_speeds[0])==0:
-        continue
+        return None
     for i in range(len(run_speeds[0])):
         col = [row[i] for row in run_speeds if row[i] is not None]
 
@@ -176,56 +177,13 @@ def gpsdistances( request ):
     measurer = Measurer()
 
     for trip in trips:
-        run_data = []
+        trip_stats = cache.get('tripstats_%s'%trip.trip_id)
+        if trip_stats is None:
+            trip_stats = _collect_trip_stats( trip, measurer )
+            cache.set('tripstats_%s'%trip.trip_id, trip_stats, 3600*24)
 
-        vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
-        if len(vps)==0:
-            continue
-
-        runs = trip.trip_runs
-        shape = trip.shape
-
-        shapelen = measurer.measure( trip.shape )
-
-        first_stoptime = trip.stoptime_set.all().order_by("stop_sequence")[0]
-
-        for run in runs:
-            run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
-
-        resolution=40
-        run_speeds = []
-        for run in runs:
-            run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
-            run_data.append( [run.start_date, 
-                              list(run.clean_vehicle_position_stream()),
-                              (resolution,run_speed)] )
-
-            run_speeds.append( run_speed )
-
-        mean_speed = []
-        fit_params = []
-        if len(run_speeds)==0 or len(run_speeds[0])==0:
-            continue
-        for i in range(len(run_speeds[0])):
-            col = [row[i] for row in run_speeds if row[i] is not None]
-
-            fit_alpha, fit_loc, fit_beta = gamma.fit( col )
-            fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
-                      gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
-                      gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
-            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
-                mean_speed.append( (None, None, None) )
-                fit_params.append( (None, None, None) )
-            else:
-                mean_speed.append( (fa,fb,fc) )
-                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
-
-        # stow fit params for later use
-        vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
-        vsr.stats = json.dumps( [resolution,fit_params] )
-        vsr.save()
-
-        trip_data.append( {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]} )
+        if trip_stats:
+            trip_data.append( trip_stats )
 
     return HttpResponse( json.dumps( trip_data, indent=2 ), mimetype="text/plain" ) 
 
