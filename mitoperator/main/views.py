@@ -11,6 +11,9 @@ import json
 
 from util import build_datetime, Measurer
 
+from scipy.stats.mstats import mquantiles
+import numpy
+
 def home(req):
     #n = StopTimeUpdate.objects.all().count()
     n = None
@@ -108,6 +111,58 @@ def _stddev(ary, mean):
 
 from scipy.stats import gamma
 
+def _collect_trip_stats( trip, measurer ):
+    run_data = []
+
+    vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
+    if len(vps)==0:
+        continue
+
+    runs = trip.trip_runs
+    shape = trip.shape
+
+    shapelen = measurer.measure( trip.shape )
+
+    first_stoptime = trip.stoptime_set.all().order_by("stop_sequence")[0]
+
+    for run in runs:
+        run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
+
+    resolution=40
+    run_speeds = []
+    for run in runs:
+        run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
+        run_data.append( [run.start_date, 
+                          list(run.clean_vehicle_position_stream()),
+                          (resolution,run_speed)] )
+
+        run_speeds.append( run_speed )
+
+    mean_speed = []
+    fit_params = []
+    if len(run_speeds)==0 or len(run_speeds[0])==0:
+        continue
+    for i in range(len(run_speeds[0])):
+        col = [row[i] for row in run_speeds if row[i] is not None]
+
+        fit_alpha, fit_loc, fit_beta = gamma.fit( col )
+        fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
+                  gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
+                  gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+        if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+            mean_speed.append( (None, None, None) )
+            fit_params.append( (None, None, None) )
+        else:
+            mean_speed.append( (fa,fb,fc) )
+            fit_params.append( (fit_alpha, fit_loc, fit_beta) )
+
+    # stow fit params for later use
+    vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
+    vsr.stats = json.dumps( [resolution,fit_params] )
+    vsr.save()
+
+    return {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]}
+
 def gpsdistances( request ):
     trip_data = []
 
@@ -158,12 +213,12 @@ def gpsdistances( request ):
             fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
                       gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
                       gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
-            if fa and fb and fc:
-                mean_speed.append( (fa,fb,fc) )
-                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
-            else:
+            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
                 mean_speed.append( (None, None, None) )
                 fit_params.append( (None, None, None) )
+            else:
+                mean_speed.append( (fa,fb,fc) )
+                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
 
         # stow fit params for later use
         vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
@@ -341,9 +396,59 @@ def stoptime( request, id ):
 
 def speedsamples( request ):
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-
     resolution, gamma_params = tripstats.stats_obj
-
-    samples = [gamma.rvs(*pp) for pp in gamma_params]
+    samples = [gamma.rvs(a,b,c) if a and b and c else None for a,b,c, in gamma_params]
 
     return HttpResponse( json.dumps([resolution,samples]) )
+
+def pathsamples( request ):
+    n_samples = 60
+    min_v = 0.1 #m/s
+
+    tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
+    resolution, gamma_params = tripstats.stats_obj
+    samples = [list(gamma.rvs(a,b,c,size=n_samples)) if (a and b and c) else [None]*n_samples for a,b,c in gamma_params]
+
+    t0 = float(request.GET['tt'])
+    d0 = float(request.GET['dd'])
+
+    paths = []
+
+    for j in range(n_samples):
+        path=[]
+
+        # first point on the future path is the point that's given
+        path.append( (d0,t0) )
+
+        # second point
+        init_i = int(d0/resolution)
+        v = max( samples[init_i][j], min_v )
+        dd = resolution-(d0-init_i*resolution)
+        dt = dd/v # v = d/t -> t = d/v
+        path.append( ((init_i+1)*resolution, t0+dt) )
+
+        # all subsequent points
+        t_cur = t0+dt
+        for i in range(init_i+1,len(samples)):
+            v = max( samples[i][j], min_v )
+            dt = resolution/v
+            t_cur += dt
+            path.append( ((i+1)*resolution,t_cur) )
+
+        paths.append( path )
+
+    low=[]
+    mid=[]
+    high=[]
+    n_samples = len(paths[0])
+    for i in range(n_samples):
+        sample = [path[i] for path in paths]
+        dd = sample[0][0]
+        tts = [x[1] for x in sample]
+
+        qlow, qmid, qhigh = mquantiles( tts, prob=(0.05,0.5,0.95) )
+        low.append( (dd,qlow) )
+        mid.append( (dd,qmid) )
+        high.append( (dd,qhigh) )
+
+    return HttpResponse( json.dumps([paths,[low,mid,high]]) )

@@ -33,10 +33,44 @@
     };
 
     processing.mouseClicked = function() {
-      console.log( "this is where you dispatch a request for sampled speeds from "+processing.mouseX+" forward." );
-      console.log( "note dist x res is "+xres+" pixels/meter" );
-      console.log( "which means what we're dealing with is trip meter "+processing.mouseX/xres );
-      console.log( "current trip is "+current_trip_id );
+      var tt = ((processing.height-processing.mouseY)/yres_time+mintime);
+      var dd = processing.mouseX/xres;
+
+      console.log( "("+dd+","+tt+")" );
+
+      p.stroke( 255,0,0 )
+      p.strokeWeight( 1 )
+      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt, function(data){
+        var paths = data[0];
+
+        for(j=0; j<paths.length; j++) {
+          var path = paths[j];
+          for(i=0; i<path.length-1; i++) {
+            var d1 = path[i][0];
+            var t1 = path[i][1];
+            var d2 = path[i+1][0];
+            var t2 = path[i+1][1];
+
+            p.line( d1, t1, d2, t2 );
+          }
+        }
+
+        p.stroke(0,0,255);
+        p.strokeWeight(5);
+        var quadrant_paths = data[1];
+        for(j=0; j<quadrant_paths.length; j++) {
+          var path = quadrant_paths[j];
+          for(i=0; i<path.length-1; i++) {
+            var d1 = path[i][0];
+            var t1 = path[i][1];
+            var d2 = path[i+1][0];
+            var t2 = path[i+1][1];
+
+            p.line( d1, t1, d2, t2 );
+          }
+        }
+
+      } );
     }
                                                                                                           
   }
@@ -57,7 +91,6 @@
         var samples = data[1];
 
         p2.stroke( 255,0,0 );
-        p2.strokeWeight( 3 );
         for(i=0; i<samples.length-1; i++){
             var d1 = i*resolution;
             var v1 = samples[i];
@@ -125,9 +158,9 @@
 
         // scale the canvas
         xres = p.width/(maxdist-mindist);
-        yres = p.height/(maxtime-mintime);
+        yres_time = p.height/(maxtime-mintime);
 
-        p.scale( xres, -yres );
+        p.scale( xres, -yres_time );
         p.translate( -mindist, -maxtime );
 
         // set up the tick marks
