@@ -5,6 +5,7 @@
   </head>
   <h2>distance vs time, speed</h2>
   <p><canvas id="canvas1" width="400" height="400"></canvas></p>
+  <div id="prediction"></div>
   <p><canvas id="canvas2" width="400" height="400"></canvas></p>
 
   <h3>shapes</h3>
@@ -20,51 +21,23 @@
 
   <script id="script1" type="text/javascript">
 
-  $(document).ready(function(){
-
   var trip_stat_data=null;
-  var lineheight=null;
+  var hypotheticals=null;
 
   // scale the canvas
   var xres=1;
   var yres_time=1;
   var mindist=0;
   var maxtime=0;
+  var mintime=0;
+  var maxtime=0;
+
+  $(document).ready(function(){
+
 
   function sketchProc(processing) {
 
-    processing.setup = function() {
-      processing.size( 1200,600 );
-    }
-
-    // Override draw function, by default it will be called 60 times per second
-    processing.draw = function() {
-        //processing.background(255)
-        //if(lineheight){
-        //    processing.line( 0, lineheight, processing.width, lineheight );
-        //}
-        /*if(trip_stat_data) {
-            draw_trip_stats(trip_stat_data, false);
-            if(lineheight){
-                processing.line( 0, lineheight, processing.width, lineheight );
-            }
-        }*/
-    };
-
-    processing.mouseMoved = function() {
-        if(processing.mouseX < 10) {
-            lineheight = processing.mouseY;
-        }
-    }
-
-    processing.mouseClicked = function() {
-      var tt = ((processing.height-processing.mouseY)/yres_time+mintime);
-      var dd = processing.mouseX/xres;
-
-      console.log( "("+dd+","+tt+")" );
-
-      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt, function(data){
-        draw_trip_stats( trip_stat_data, false );
+    var draw_hypotheticals = function(data) {
 
         var paths = data[0];
 
@@ -96,7 +69,97 @@
             p.line( d1, t1, d2, t2 );
           }
         }
+    };
 
+    processing.setup = function() {
+      processing.size( 1200,600 );
+    }
+
+    // Override draw function, by default it will be called 60 times per second
+    processing.draw = function() {
+    };
+
+    var interpolate_and_draw_distance = function(line, tt) {
+
+        for(i=0; i<line.length-1; i++){
+          dd1 = line[i][0];
+          tt1 = line[i][1];
+          dd2 = line[i+1][0];
+          tt2 = line[i+1][1];
+
+          if( tt1<=tt && tt2>=tt ) {
+            dd_interp = ((tt-tt1)/(tt2-tt1))*(dd2-dd1)+dd1;
+            processing.line( dd_interp, tt, dd_interp, 0 );
+            return dd_interp;
+          }
+        }
+    }
+
+    var interpolate_and_draw_time = function(line, dd) {
+
+        for(i=0; i<line.length-1; i++){
+          dd1 = line[i][0];
+          tt1 = line[i][1];
+          dd2 = line[i+1][0];
+          tt2 = line[i+1][1];
+
+          if( dd1<=dd && dd2>=dd ) {
+            tt_interp = ((dd-dd1)/(dd2-dd1))*(tt2-tt1)+tt1;
+            processing.line( dd, tt_interp, 0, tt_interp );
+            return tt_interp;
+          }
+        }
+    }
+
+    processing.mouseClicked = function() {
+      var tt = ((processing.height-processing.mouseY)/yres_time+mintime);
+      var dd = processing.mouseX/xres;
+
+      if( processing.mouseX < 10 ) {
+        console.log( "curious about time "+tt );
+
+        draw_trip_stats( trip_stat_data, false );
+        draw_hypotheticals(hypotheticals);
+
+        fitlines = hypotheticals[1];
+
+        processing.stroke(0,255,0);
+        processing.strokeWeight(3);
+
+        lowest_dd=interpolate_and_draw_distance(fitlines[0], tt);
+        probable_dd=interpolate_and_draw_distance(fitlines[1], tt);
+        highest_dd=interpolate_and_draw_distance(fitlines[2], tt );
+
+        processing.line(mindist, tt, maxdist, tt);
+
+        $("#prediction").html("At time "+Math.round(tt)+"s, between "+Math.round(lowest_dd)+"m and "+Math.round(highest_dd)+"m, P(0.5) at "+Math.round(probable_dd)+"m");
+        return;
+      }
+
+      if( Math.abs(tt)*yres_time < 15 ){
+        console.log( "curious about distance "+dd );
+        draw_trip_stats( trip_stat_data, false );
+        draw_hypotheticals(hypotheticals);
+
+        fitlines = hypotheticals[1];
+
+        processing.stroke(0,255,0);
+        processing.strokeWeight(3);
+
+        earliest_tt=interpolate_and_draw_time(fitlines[0], dd);
+        probable_tt=interpolate_and_draw_time(fitlines[1], dd);
+        latest_tt=interpolate_and_draw_time(fitlines[2], dd);
+
+        processing.line(dd, mintime, dd, maxtime);
+        $("#prediction").html("At distance "+Math.round(dd)+"m, between "+Math.round(earliest_tt)+"s and "+Math.round(latest_tt)+"s, P(0.5) at "+Math.round(probable_tt)+"s");
+        return;
+      }
+
+      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt, function(data){
+        draw_trip_stats( trip_stat_data, false );
+
+        hypotheticals=data;
+        draw_hypotheticals(hypotheticals);
       } );
     }
                                                                                                           
