@@ -111,6 +111,9 @@ class Run:
             vp.percent_along_route = shape.project( vp.shape, normalized=True )
             vp.dist_along_route = vp.percent_along_route*shapelen
 
+            #figure out dist between vp and route - if it's far away, then the VP isn't actually on the route; we can choose at a later time to ignore it
+            #vp.distance_from_route = measurer.measure( [shape.interpolate( vp.percent_along_route ), vp.shape] )
+
     def clean_vehicle_position_stream( self ):
         # starts the stream at the last global minimum of distance_along_route; thereafter, only yields points where the distance_along_route is larger or equal to the previous distance_along_route
 

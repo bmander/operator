@@ -3,21 +3,11 @@
   <script src="/js/processing.js"></script>
   <script src="/js/jquery.js"></script>
   </head>
-  <h2>distance vs time, speed</h2>
+  <h2>Distance from trip start vs. time since schedule start</h2>
   <p><canvas id="canvas1" width="400" height="400"></canvas></p>
   <div id="prediction"></div>
+  <h2>Distance from start vs. speed</h2>
   <p><canvas id="canvas2" width="400" height="400"></canvas></p>
-
-  <h3>shapes</h3>
-  {% for shape in shapes %}
-    <span id="shape{{shape}}" style="background-color:{% if forloop.counter|divisibleby:2%}#ffbbbb{% else %}#bbbbff{% endif %}">{{shape}}</span>
-  {% endfor %}
-  <h3>trips</h3>
-  <ul>
-  {% for trip in trips %}
-    <li id="trip{{trip.trip_id}}">{{trip.trip_id}} {{trip.trip_headsign}} {{trip.service_period}} {{trip.shape_id}}</li>
-  {% endfor %}
-  </ul>
 
   <script id="script1" type="text/javascript">
 
@@ -32,8 +22,9 @@
   var mintime=0;
   var maxtime=0;
 
-  $(document).ready(function(){
+  var waitmode=false;
 
+  $(document).ready(function(){
 
   function sketchProc(processing) {
 
@@ -77,6 +68,16 @@
 
     // Override draw function, by default it will be called 60 times per second
     processing.draw = function() {
+        if(waitmode) {
+            black = Math.floor(processing.frameCount/processing.width)%2==0;
+            //console.log( Math.round(processing.frameCount/processing.width)%2 );
+            if(black){
+                processing.stroke(0);
+            } else {
+                processing.stroke(255);
+            }
+            processing.line(processing.frameCount%processing.width,2*processing.height/5,processing.frameCount%processing.width,3*processing.height/5);
+        }
     };
 
     var interpolate_and_draw_distance = function(line, tt) {
@@ -116,7 +117,6 @@
       var dd = processing.mouseX/xres;
 
       if( processing.mouseX < 10 ) {
-        console.log( "curious about time "+tt );
 
         draw_trip_stats( trip_stat_data, false );
         draw_hypotheticals(hypotheticals);
@@ -137,7 +137,6 @@
       }
 
       if( Math.abs(tt)*yres_time < 15 ){
-        console.log( "curious about distance "+dd );
         draw_trip_stats( trip_stat_data, false );
         draw_hypotheticals(hypotheticals);
 
@@ -151,7 +150,7 @@
         latest_tt=interpolate_and_draw_time(fitlines[2], dd);
 
         processing.line(dd, mintime, dd, maxtime);
-        $("#prediction").html("At distance "+Math.round(dd)+"m, between "+Math.round(earliest_tt)+"s and "+Math.round(latest_tt)+"s, P(0.5) at "+Math.round(probable_tt)+"s");
+        $("#prediction").html("At distance "+Math.round(dd)+"m, between "+Math.round(100*earliest_tt/60)/100+"min and "+Math.round(100*latest_tt/60)/100+"min, P(0.5) at "+Math.round(100*probable_tt/60)/100+"min");
         return;
       }
 
@@ -208,7 +207,7 @@
         p2.background( 255,250,250 );
         p.background( 250 );
 
-        trip_data = data[0];
+        trip_data = data;
 
         current_trip_id = trip_data.trip_id;
 
@@ -379,23 +378,19 @@
         }
     }
 
-  var onclickme = function(eventdata) {
-    $.getJSON(eventdata.data.url, function(data) {
+  var onclickme = function() {
+    waitmode = true; $("#predition").html("It usually takes a few minutes...");
+    $.getJSON('{% url gpsdistances %}?trip_id={{trip_id}}', function(data) {
+       waitmode= false; $("#prediction").html("");
        trip_stat_data = data;
 
-       draw_trip_stats(trip_stat_data, true)
+       draw_trip_stats(trip_stat_data, true);
     })
   } 
 
+  onclickme();
+
   p.stroke( 0 );
-
-  {% for trip in trips %}
-  $("#trip{{trip.trip_id}}").click({url:'{% url gpsdistances %}?trip_id={{trip.trip_id}}'}, onclickme )
-  {% endfor %}
-
-  {% for shape in shapes %}
-  $("#shape{{shape}}").click({url:'{% url gpsdistances %}?shape_id={{shape}}'}, onclickme )
-  {% endfor %}
 
   // p.exit(); to detach it
   

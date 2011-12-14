@@ -165,27 +165,15 @@ def _collect_trip_stats( trip, measurer ):
     return {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]}
 
 def gpsdistances( request ):
-    trip_data = []
+    trip = Trip.objects.get(trip_id=request.GET['trip_id'])
 
-    if 'trip_id' in request.GET:
-        trips = [Trip.objects.get(trip_id=request.GET['trip_id'])]
-    elif 'shape_id' in request.GET:
-        trips = Trip.objects.all().filter(shape_id=request.GET['shape_id'])
-    else:
-        trips = []
+    trip_stats = cache.get('tripstats_%s'%trip.trip_id)
 
-    measurer = Measurer()
+    if trip_stats is None:
+        trip_stats = _collect_trip_stats( trip, Measurer() )
+        cache.set('tripstats_%s'%trip.trip_id, trip_stats, 3600*24)
 
-    for trip in trips:
-        trip_stats = cache.get('tripstats_%s'%trip.trip_id)
-        if trip_stats is None:
-            trip_stats = _collect_trip_stats( trip, measurer )
-            cache.set('tripstats_%s'%trip.trip_id, trip_stats, 3600*24)
-
-        if trip_stats:
-            trip_data.append( trip_stats )
-
-    return HttpResponse( json.dumps( trip_data, indent=2 ), mimetype="text/plain" ) 
+    return HttpResponse( json.dumps( trip_stats, indent=2 ), mimetype="text/plain" ) 
 
 def stops(request):
     stops = Stop.objects.all().select_related( 'trip' )
@@ -286,21 +274,9 @@ def gpsviz( request ):
     return render_to_response( "gpsviz.html",  {'trips':trips, 'shapes':shapes} )
 
 def gpsdistviz( request ):
-    trips = []
-    shapes = []
+    trip_id = request.GET['trip_id']
 
-    if 'trip_id' in request.GET:
-        trips = [ Trip.objects.get( trip_id=request.GET['trip_id'] ) ]
-        shapes = [ trips[0].shape_id ]
-
-    if 'route_id' in request.GET:
-        route = Route.objects.get(route_id=request.GET['route_id'])
-        shapes = set()
-        for trip in route.trip_set.all().order_by('shape_id', 'trip_headsign', 'service_period'):
-            trips.append( trip )
-            shapes.add( trip.shape_id )
-
-    return render_to_response( "gpsdistviz.html",  {'trips':trips, 'shapes':shapes} )
+    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id} )
 
 def routes( request ):
     routes = Route.objects.all()
