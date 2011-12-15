@@ -112,12 +112,19 @@ def _stddev(ary, mean):
 
 from scipy.stats import gamma
 
+def is_number_junk(num):
+    return abs(num)<1E-6 or abs(num)>1E6 or numpy.isnan(num)
+
 def _collect_trip_stats( trip, measurer ):
+    print "collect trip stats"
+
     run_data = []
 
+    print "get all vehicle updates for this trip"
     vps = trip.vehicleupdate_set.all().order_by('data_timestamp')
     if len(vps)==0:
         return None
+    print "done"
 
     runs = trip.trip_runs
     shape = trip.shape
@@ -126,36 +133,53 @@ def _collect_trip_stats( trip, measurer ):
 
     first_stoptime = trip.stoptime_set.all().order_by("stop_sequence")[0]
 
+    print "set vehicle distance along route for each run"
     for run in runs:
+        print "run %s"%run
         run.set_vehicle_dist_along_route( shape, shapelen, first_stoptime )
+    print "done"
 
+    print "set vehicle speed for each run along route"
     resolution=40
     run_speeds = []
     for run in runs:
+        print "run %s"%run
         run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
         run_data.append( [run.start_date, 
                           list(run.clean_vehicle_position_stream()),
                           (resolution,run_speed)] )
 
         run_speeds.append( run_speed )
+    print "done"
 
+    print "fit gamma dist for each point along route"
     mean_speed = []
     fit_params = []
     if len(run_speeds)==0 or len(run_speeds[0])==0:
         return None
     for i in range(len(run_speeds[0])):
+        print "%s/%s"%(i,len(run_speeds[0]))
         col = [row[i] for row in run_speeds if row[i] is not None]
 
+        print "fitting..."
         fit_alpha, fit_loc, fit_beta = gamma.fit( col )
-        fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
-                  gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
-                  gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
-        if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+        print "done"
+        if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
+            print "getting ppfs (%s %s %s)..."%(fit_alpha, fit_loc, fit_beta)
+            fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
+                      gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
+                      gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+            print "done"
+            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+                mean_speed.append( (None, None, None) )
+                fit_params.append( (None, None, None) )
+            else:
+                mean_speed.append( (fa,fb,fc) )
+                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
+        else:
             mean_speed.append( (None, None, None) )
             fit_params.append( (None, None, None) )
-        else:
-            mean_speed.append( (fa,fb,fc) )
-            fit_params.append( (fit_alpha, fit_loc, fit_beta) )
+    print "done"
 
     # stow fit params for later use
     vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
@@ -165,13 +189,18 @@ def _collect_trip_stats( trip, measurer ):
     return {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]}
 
 def gpsdistances( request ):
+    print "GOT"
+
     trip = Trip.objects.get(trip_id=request.GET['trip_id'])
 
-    trip_stats = cache.get('tripstats_%s'%trip.trip_id)
-
-    if trip_stats is None:
+    if request.GET.get( 'nocache' )=='true':
         trip_stats = _collect_trip_stats( trip, Measurer() )
-        cache.set('tripstats_%s'%trip.trip_id, trip_stats, 3600*24)
+    else:
+        trip_stats = cache.get('tripstats_%s'%trip.trip_id)
+
+        if trip_stats is None:
+            trip_stats = _collect_trip_stats( trip, Measurer() )
+            cache.set('tripstats_%s'%trip.trip_id, trip_stats, 3600*24)
 
     return HttpResponse( json.dumps( trip_stats, indent=2 ), mimetype="text/plain" ) 
 
