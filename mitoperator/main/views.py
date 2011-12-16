@@ -113,9 +113,17 @@ def _stddev(ary, mean):
 from scipy.stats import gamma
 
 def is_number_junk(num):
-    return abs(num)<1E-6 or abs(num)>1E6 or numpy.isnan(num)
+    #return abs(num)<1E-6 or abs(num)>1E6 or numpy.isnan(num)
+    return abs(num)>1E10 or numpy.isnan(num)
 
-def _collect_trip_stats( trip, measurer ):
+def _differentiate(ary):
+    for i in range(len(ary)-1):
+        if ary[i+1] is None or ary[i] is None:
+            yield None
+        else:
+            yield ary[i+1]-ary[i]
+
+def _collect_trip_stats( trip, measurer, fittype ):
     print "collect trip stats"
 
     run_data = []
@@ -142,49 +150,76 @@ def _collect_trip_stats( trip, measurer ):
     print "set vehicle speed for each run along route"
     resolution=40
     run_speeds = []
+    run_accels = []
     for run in runs:
         print "run %s"%run
         run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
+        run_accel = [x/resolution if x is not None else None for x in _differentiate(run_speed)]
         run_data.append( [run.start_date, 
                           list(run.clean_vehicle_position_stream()),
-                          (resolution,run_speed)] )
+                          (resolution,run_speed),
+                          (resolution,run_accel)] )
 
         run_speeds.append( run_speed )
+        run_accels.append( run_accel )
     print "done"
 
-    print "fit gamma dist for each point along route"
     mean_speed = []
-    fit_params = []
-    if len(run_speeds)==0 or len(run_speeds[0])==0:
-        return None
-    for i in range(len(run_speeds[0])):
-        print "%s/%s"%(i,len(run_speeds[0]))
-        col = [row[i] for row in run_speeds if row[i] is not None]
+    if fittype=="gamma":
+        print "fit gamma dist for each point along route"
+        fit_params = []
+        if len(run_speeds)==0 or len(run_speeds[0])==0:
+            return None
+        for i in range(len(run_speeds[0])):
+            print "%s/%s"%(i,len(run_speeds[0]))
+            col = [row[i] for row in run_speeds if row[i] is not None]
 
-        print "fitting..."
-        fit_alpha, fit_loc, fit_beta = gamma.fit( col )
-        print "done"
-        if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
-            print "getting ppfs (%s %s %s)..."%(fit_alpha, fit_loc, fit_beta)
-            fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
-                      gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
-                      gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+            print "fitting..."
+            fit_alpha, fit_loc, fit_beta = gamma.fit( col )
             print "done"
-            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+            if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
+                print "getting ppfs (%s %s %s)..."%(fit_alpha, fit_loc, fit_beta)
+                fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
+                          gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
+                          gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+                print "done"
+                if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+                    mean_speed.append( (None, None, None) )
+                    fit_params.append( (None, None, None) )
+                else:
+                    mean_speed.append( (fa,fb,fc) )
+                    fit_params.append( (fit_alpha, fit_loc, fit_beta) )
+            else:
                 mean_speed.append( (None, None, None) )
                 fit_params.append( (None, None, None) )
-            else:
-                mean_speed.append( (fa,fb,fc) )
-                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
-        else:
-            mean_speed.append( (None, None, None) )
-            fit_params.append( (None, None, None) )
-    print "done"
+        print "done"
 
-    # stow fit params for later use
-    vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
-    vsr.stats = json.dumps( [resolution,fit_params] )
-    vsr.save()
+        # stow fit params for later use
+        vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
+        vsr.stats = json.dumps( ['gamma',resolution,fit_params] )
+        vsr.save()
+    elif fittype=='uniform':
+        print "fit uniform dist for each point along route"
+        fit_params = []
+        if len(run_speeds)==0 or len(run_speeds[0])==0:
+            return None
+        for i in range(len(run_speeds[0])):
+            print "%s/%s"%(i,len(run_speeds[0]))
+            col = [row[i] for row in run_speeds if row[i] is not None]
+            if len(col)==0:
+                mean_speed.append( (None, None, None) )
+                fit_params.append( (None, None, None, None, None) )
+            else:
+                q1,q2,q3,q4,q5 = mquantiles(col, [0.16666666666,0.333333333,0.5,0.666666666,0.8333333333])
+                mean_speed.append( (min(col), q3, max(col)) )
+                fit_params.append( (min(col),q1,q2,q3,q4,q5,max(col)) )
+
+        print "done"
+
+        # stow fit params for later use
+        vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
+        vsr.stats = json.dumps( ['uniform',resolution,fit_params] )
+        vsr.save()
 
     return {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]}
 
@@ -192,14 +227,17 @@ def gpsdistances( request ):
     print "GOT"
 
     trip = Trip.objects.get(trip_id=request.GET['trip_id'])
+    fittype = request.GET.get('fittype', 'gamma')
+
+    print request.GET
 
     if request.GET.get( 'nocache' )=='true':
-        trip_stats = _collect_trip_stats( trip, Measurer() )
+        trip_stats = _collect_trip_stats( trip, Measurer(), fittype )
     else:
         trip_stats = cache.get('tripstats_%s'%trip.trip_id)
 
         if trip_stats is None:
-            trip_stats = _collect_trip_stats( trip, Measurer() )
+            trip_stats = _collect_trip_stats( trip, Measurer(), fittype )
             cache.set('tripstats_%s'%trip.trip_id, trip_stats, 3600*24)
 
     return HttpResponse( json.dumps( trip_stats, indent=2 ), mimetype="text/plain" ) 
@@ -304,8 +342,10 @@ def gpsviz( request ):
 
 def gpsdistviz( request ):
     trip_id = request.GET['trip_id']
+    nocache=request.GET.get('nocache')
+    fittype=request.GET.get('fittype')
 
-    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id} )
+    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id,'nocache':nocache,'fittype':fittype} )
 
 def routes( request ):
     routes = Route.objects.all()
@@ -357,10 +397,29 @@ def stoptime( request, id ):
 
     return HttpResponse( render_to_response( "stoptime.html", {'stoptime':stoptime, 'events':events} ) )
 
+def _speedsamples( disttype, params, n=1 ):
+    if disttype=='gamma':
+        samples = [gamma.rvs(a,b,c,size=n) if (a and b and c) else [None]*n for a,b,c, in params]
+    elif disttype=='uniform':
+        samples = []
+        for uniparams in params:
+            sample=[]
+            for i in range(n):
+                nquads = len(uniparams)-1
+                quad = numpy.random.randint(nquads)
+                sinstance = numpy.random.uniform( uniparams[quad],uniparams[quad+1] )
+                sample.append( sinstance if not numpy.isnan(sinstance) else None )
+            samples.append( sample )
+    else:
+        samples=[]
+
+    return samples
+    return HttpResponse( json.dumps([resolution,samples]) )
+
 def speedsamples( request ):
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-    resolution, gamma_params = tripstats.stats_obj
-    samples = [gamma.rvs(a,b,c) if a and b and c else None for a,b,c, in gamma_params]
+    disttype, resolution, params = tripstats.stats_obj
+    samples = [x[0] for x in _speedsamples(disttype, params,n=1)]
 
     return HttpResponse( json.dumps([resolution,samples]) )
 
@@ -369,8 +428,9 @@ def pathsamples( request ):
     min_v = 0.1 #m/s
 
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-    resolution, gamma_params = tripstats.stats_obj
-    samples = [list(gamma.rvs(a,b,c,size=n_samples)) if (a and b and c) else [None]*n_samples for a,b,c in gamma_params]
+    disttype, resolution, gamma_params = tripstats.stats_obj
+    #samples = [list(gamma.rvs(a,b,c,size=n_samples)) if (a and b and c) else [None]*n_samples for a,b,c in gamma_params]
+    samples = _speedsamples(disttype,gamma_params,n=n_samples)
 
     t0 = float(request.GET['tt'])
     d0 = float(request.GET['dd'])

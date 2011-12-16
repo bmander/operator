@@ -380,7 +380,7 @@
 
   var onclickme = function() {
     waitmode = true; $("#predition").html("It usually takes a few minutes...");
-    $.getJSON('{% url gpsdistances %}?trip_id={{trip_id}}', function(data) {
+    $.getJSON('{% url gpsdistances %}?trip_id={{trip_id}}{% if nocache%}&nocache={{nocache}}{%endif%}{%if fittype%}&fittype={{fittype}}{%endif%}', function(data) {
        waitmode= false; $("#prediction").html("");
        trip_stat_data = data;
 
