@@ -8,6 +8,8 @@
   <div id="prediction"></div>
   <h2>Distance from start vs. speed</h2>
   <p><canvas id="canvas2" width="400" height="400"></canvas></p>
+  <h2>Distance from start vs. acceleration ((m/s)/m)</h2>
+  <p><canvas id="canvas3", width="400" height="400"></canvas></p>
 
   <script id="script1" type="text/javascript">
 
@@ -194,11 +196,26 @@
                                                                                                           
   }
 
+  function sketchProc3(processing) {
+
+    processing.setup = function() {
+      processing.size( 1200,600 );
+    }
+
+    // Override draw function, by default it will be called 60 times per second
+    processing.draw = function() {
+    };
+
+  }
+
   var canvas = document.getElementById("canvas1");
   var canvas2 = document.getElementById("canvas2");
+  var canvas3 = document.getElementById("canvas3");
   // attaching the sketchProc function to the canvas
   var p = new Processing(canvas, sketchProc);
   var p2 = new Processing(canvas2, sketchProc2);
+  var p3 = new Processing(canvas3, sketchProc3);
+  p3.background( 250,255,250 );
   p2.background( 255,250,250 );
   p.background( 250 );
 
@@ -219,6 +236,9 @@
 
         minspeed = 0;
         maxspeed = 26;
+
+        minaccel = -0.5;
+        maxaccel = 0.5;
 
         $.each( trip_data.run_data, function( key, val ) {
 
@@ -340,6 +360,56 @@
           }
         } );
 
+        //=============ACCEL PLOT==================
+        yscale_accel = 5000;
+
+        //scale the canvas
+        yres_accel = p3.height/(maxaccel*yscale_accel-minaccel*yscale_accel)
+
+        if(scale){
+          p3.scale(xres,-yres_accel);
+          p3.translate(-mindist,-maxaccel*yscale_accel)
+        }
+
+        // set up the tick marks
+        p3.stroke( 255, 0, 0 );
+        // axes
+        p3.line(mindist, 0, maxdist, 0);
+        p3.line(mindist, minaccel*yscale_accel, mindist, maxaccel*yscale_accel);
+
+        // distance ticks
+        for(x=mindist; x<=maxdist; x+=distspace){
+          //console.log(x);
+          p3.line( x, 0, x, 10*yres_accel );
+        }
+        // accel ticks
+        accelspace = 0.01;
+        for(var y=minaccel*yscale_accel; y<=maxaccel*yscale_accel; y+=accelspace*yscale_accel){
+          p3.line( mindist, y, mindist+50, y );
+        }
+        
+        // draw the speed plots
+        p3.stroke( 128 );
+        p3.strokeWeight(1)
+
+        $.each( trip_data.run_data, function( key, val ) {
+
+          as_plot = val[3];
+          pitch = as_plot[0]; // distance between velocity measurements
+          as = as_plot[1]; // plot of velocities
+          for(var i=0; i< as.length-1; i++) {
+            a1 = as[i];
+            a2 = as[i+1];
+
+            //console.log(a1)
+
+            d1 = i*pitch;
+            d2 = (i+1)*pitch;
+
+            p3.line( d1, a1*yscale_accel, d2, a2*yscale_accel );
+          }
+        } );
+
         //===========MEAN SPEED PLOT===========
         p2.stroke( 0,0,255 );
         p2.strokeWeight( 10 );
@@ -378,7 +448,7 @@
         }
     }
 
-  var onclickme = function() {
+  var fetchtripstats = function() {
     waitmode = true; $("#predition").html("It usually takes a few minutes...");
     $.getJSON('{% url gpsdistances %}?trip_id={{trip_id}}{% if nocache%}&nocache={{nocache}}{%endif%}{%if fittype%}&fittype={{fittype}}{%endif%}', function(data) {
        waitmode= false; $("#prediction").html("");
@@ -388,12 +458,8 @@
     })
   } 
 
-  onclickme();
+  fetchtripstats();
 
-  p.stroke( 0 );
-
-  // p.exit(); to detach it
-  
   });
   
   </script>
