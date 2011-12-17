@@ -110,7 +110,7 @@ def _stddev(ary, mean):
     
     return (float(sum(devsq))/len(devsq))**0.5
 
-from scipy.stats import gamma
+from scipy.stats import gamma, norm, loggamma
 
 def is_number_junk(num):
     #return abs(num)<1E-6 or abs(num)>1E6 or numpy.isnan(num)
@@ -122,6 +122,101 @@ def _differentiate(ary):
             yield None
         else:
             yield ary[i+1]-ary[i]
+
+def _fit_and_wrap_gamma(rows):
+    fit_params = []
+    mean_speed = []
+    if len(rows)==0 or len(rows[0])==0:
+        return None
+    for i in range(len(rows[0])):
+        col = [row[i] for row in rows if row[i] is not None]
+
+        fit_alpha, fit_loc, fit_beta = gamma.fit( col )
+        if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
+            fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
+                      gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
+                      gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+                mean_speed.append( (None, None, None) )
+                fit_params.append( (None, None, None) )
+            else:
+                mean_speed.append( (fa,fb,fc) )
+                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
+        else:
+            mean_speed.append( (None, None, None) )
+            fit_params.append( (None, None, None) )
+    return fit_params, mean_speed
+
+def _fit_and_wrap_loggamma(rows):
+    fit_params = []
+    mean_speed = []
+    if len(rows)==0 or len(rows[0])==0:
+        return None
+    for i in range(len(rows[0])):
+        col = [row[i] for row in rows if row[i] is not None]
+        print "%d/%d"%(i,len(rows[0]))
+
+        fit_alpha, fit_loc, fit_beta = loggamma.fit( col )
+        if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
+            fa,fb,fc=(loggamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
+                      loggamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
+                      loggamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
+            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc) or not (numpy.isfinite(fa) and numpy.isfinite(fb) and numpy.isfinite(fc)):
+                mean_speed.append( (None, None, None) )
+                fit_params.append( (None, None, None) )
+            else:
+                mean_speed.append( (fa,fb,fc) )
+                fit_params.append( (fit_alpha, fit_loc, fit_beta) )
+        else:
+            mean_speed.append( (None, None, None) )
+            fit_params.append( (None, None, None) )
+    print "done"
+    return fit_params, mean_speed
+
+def _fit_and_wrap(rows, fittype):
+    fit_params = []
+    mean_speed = []
+    if len(rows)==0 or len(rows[0])==0:
+        return None
+    for i in range(len(rows[0])):
+        col = [row[i] for row in rows if row[i] is not None]
+
+        colparams = fittype.fit( col )
+        if reduce( lambda x,y: x and not is_number_junk(y), colparams, True):
+            fa,fb,fc=(norm.ppf(0.05, *colparams),
+                      norm.ppf(0.5, *colparams),
+                      norm.ppf(0.95, *colparams))
+            if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
+                mean_speed.append( (None, None, None) )
+                fit_params.append( None )
+            else:
+                mean_speed.append( (fa,fb,fc) )
+                fit_params.append( colparams )
+        else:
+            mean_speed.append( (None, None, None) )
+            fit_params.append( None )
+    return fit_params, mean_speed
+
+def _fit_and_wrap_norm(rows):
+    return _fit_and_wrap( rows, norm )
+
+def _fit_and_wrap_uniform(rows):
+    fit_params = []
+    mean_speed=[]
+    if len(rows)==0 or len(rows[0])==0:
+        return None
+    for i in range(len(rows[0])):
+        print "%s/%s"%(i,len(rows[0]))
+        col = [row[i] for row in rows if row[i] is not None]
+        if len(col)==0:
+            mean_speed.append( (None, None, None) )
+            fit_params.append( (None, None, None, None, None) )
+        else:
+            q1,q2,q3,q4,q5 = mquantiles(col, [0.16666666666,0.333333333,0.5,0.666666666,0.8333333333])
+            mean_speed.append( (min(col), q3, max(col)) )
+            fit_params.append( (min(col),q1,q2,q3,q4,q5,max(col)) )
+
+    return fit_params, mean_speed
 
 def _collect_trip_stats( trip, measurer, fittype ):
     print "collect trip stats"
@@ -164,64 +259,31 @@ def _collect_trip_stats( trip, measurer, fittype ):
         run_accels.append( run_accel )
     print "done"
 
-    mean_speed = []
     if fittype=="gamma":
-        print "fit gamma dist for each point along route"
-        fit_params = []
-        if len(run_speeds)==0 or len(run_speeds[0])==0:
-            return None
-        for i in range(len(run_speeds[0])):
-            print "%s/%s"%(i,len(run_speeds[0]))
-            col = [row[i] for row in run_speeds if row[i] is not None]
-
-            print "fitting..."
-            fit_alpha, fit_loc, fit_beta = gamma.fit( col )
-            print "done"
-            if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
-                print "getting ppfs (%s %s %s)..."%(fit_alpha, fit_loc, fit_beta)
-                fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
-                          gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
-                          gamma.ppf(0.95, fit_alpha, fit_loc, fit_beta))
-                print "done"
-                if numpy.isnan(fa) or numpy.isnan(fb) or numpy.isnan(fc):
-                    mean_speed.append( (None, None, None) )
-                    fit_params.append( (None, None, None) )
-                else:
-                    mean_speed.append( (fa,fb,fc) )
-                    fit_params.append( (fit_alpha, fit_loc, fit_beta) )
-            else:
-                mean_speed.append( (None, None, None) )
-                fit_params.append( (None, None, None) )
-        print "done"
-
-        # stow fit params for later use
-        vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
-        vsr.stats = json.dumps( ['gamma',resolution,fit_params] )
-        vsr.save()
+        speed_fit_params, mean_speed = _fit_and_wrap_gamma( run_speeds )
+        accel_fit_params, mean_accel = _fit_and_wrap_gamma( run_accels )
+    elif fittype=="loggamma":
+        speed_fit_params, mean_speed = _fit_and_wrap_loggamma( run_speeds )
+        accel_fit_params, mean_accel = _fit_and_wrap_loggamma( run_accels )
     elif fittype=='uniform':
-        print "fit uniform dist for each point along route"
-        fit_params = []
-        if len(run_speeds)==0 or len(run_speeds[0])==0:
-            return None
-        for i in range(len(run_speeds[0])):
-            print "%s/%s"%(i,len(run_speeds[0]))
-            col = [row[i] for row in run_speeds if row[i] is not None]
-            if len(col)==0:
-                mean_speed.append( (None, None, None) )
-                fit_params.append( (None, None, None, None, None) )
-            else:
-                q1,q2,q3,q4,q5 = mquantiles(col, [0.16666666666,0.333333333,0.5,0.666666666,0.8333333333])
-                mean_speed.append( (min(col), q3, max(col)) )
-                fit_params.append( (min(col),q1,q2,q3,q4,q5,max(col)) )
+        speed_fit_params, mean_speed = _fit_and_wrap_uniform( run_speeds )
+        accel_fit_params, mean_accel = _fit_and_wrap_uniform( run_accels )
+    elif fittype=='norm':
+        speed_fit_params, mean_speed = _fit_and_wrap_norm( run_speeds )
+        accel_fit_params, mean_accel = _fit_and_wrap_norm( run_accels )
+    else:
+        fittype='none'
+        speed_fit_params, mean_speed = ([], [])
+        accel_fit_params, mean_accel = ([], [])
 
-        print "done"
-
-        # stow fit params for later use
-        vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
-        vsr.stats = json.dumps( ['uniform',resolution,fit_params] )
-        vsr.save()
-
-    return {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed]}
+    print "save that shit"
+    # stow fit params for later use
+    vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
+    vsr.stats = json.dumps( [fittype,resolution,speed_fit_params,accel_fit_params] )
+    vsr.save()
+    
+    print "JUST ABOUT TO SEND"
+    return {'trip_id':trip.trip_id, 'run_data':run_data, 'mean_speed':[resolution,mean_speed],'mean_accels':[resolution, mean_accel]}
 
 def gpsdistances( request ):
     print "GOT"
@@ -397,9 +459,11 @@ def stoptime( request, id ):
 
     return HttpResponse( render_to_response( "stoptime.html", {'stoptime':stoptime, 'events':events} ) )
 
-def _speedsamples( disttype, params, n=1 ):
+def _drawsamples( disttype, params, n=1 ):
     if disttype=='gamma':
         samples = [gamma.rvs(a,b,c,size=n) if (a and b and c) else [None]*n for a,b,c, in params]
+    elif disttype=='loggamma':
+        samples = [loggamma.rvs(a,b,c,size=n) if (a and b and c) else [None]*n for a,b,c, in params]
     elif disttype=='uniform':
         samples = []
         for uniparams in params:
@@ -418,8 +482,8 @@ def _speedsamples( disttype, params, n=1 ):
 
 def speedsamples( request ):
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-    disttype, resolution, params = tripstats.stats_obj
-    samples = [x[0] for x in _speedsamples(disttype, params,n=1)]
+    disttype, resolution, params, accel_params = tripstats.stats_obj
+    samples = [x[0] for x in _drawsamples(disttype, params,n=1)]
 
     return HttpResponse( json.dumps([resolution,samples]) )
 
@@ -428,15 +492,19 @@ def pathsamples( request ):
     min_v = 0.1 #m/s
 
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-    disttype, resolution, gamma_params = tripstats.stats_obj
-    #samples = [list(gamma.rvs(a,b,c,size=n_samples)) if (a and b and c) else [None]*n_samples for a,b,c in gamma_params]
-    samples = _speedsamples(disttype,gamma_params,n=n_samples)
+    disttype, resolution, gamma_params, accel_params = tripstats.stats_obj
+    
+    accel_samples = _drawsamples(disttype,accel_params,n=n_samples)
+    samples = _drawsamples(disttype,gamma_params,n=n_samples)
+
+    print "samples got"
 
     t0 = float(request.GET['tt'])
     d0 = float(request.GET['dd'])
 
     paths = []
 
+    print "simulating paths forward"
     for j in range(n_samples):
         path=[]
 
@@ -459,7 +527,9 @@ def pathsamples( request ):
             path.append( ((i+1)*resolution,t_cur) )
 
         paths.append( path )
+    print "done"
 
+    print "wrapping"
     low=[]
     mid=[]
     high=[]
@@ -473,5 +543,6 @@ def pathsamples( request ):
         low.append( (dd,qlow) )
         mid.append( (dd,qmid) )
         high.append( (dd,qhigh) )
+    print "done"
 
-    return HttpResponse( json.dumps([paths,[low,mid,high]]) )
+    return HttpResponse( json.dumps([paths,[low,mid,high],[list(sample) for sample in samples]]) )
