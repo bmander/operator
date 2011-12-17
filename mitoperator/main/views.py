@@ -131,7 +131,7 @@ def _fit_and_wrap_gamma(rows):
     for i in range(len(rows[0])):
         col = [row[i] for row in rows if row[i] is not None]
 
-        fit_alpha, fit_loc, fit_beta = gamma.fit( col )
+        fit_alpha, fit_loc, fit_beta = gamma.fit( col, loc=0 )
         if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
             fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
                       gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
@@ -493,8 +493,27 @@ def pathsamples( request ):
 
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
     disttype, resolution, gamma_params, accel_params = tripstats.stats_obj
-    
-    accel_samples = _drawsamples(disttype,accel_params,n=n_samples)
+   
+    """
+    accel_sample_metaset = _drawsamples(disttype,accel_params,n=n_samples)
+
+    samples = [[]]*(len(accel_params)+1)
+    for i in range(n_samples):
+        samples[0] = _drawsamples(disttype, [gamma_params[0]], n=n_samples)[0]
+    for i, accel_samples in enumerate( accel_sample_metaset ):
+        last_step = samples[i]
+        this_step = []
+        for j in range(n_samples):
+            try:
+                this_step.append( last_step[j]+accel_samples[j]*40 )
+            except TypeError:
+                this_step.append( None )
+        samples[i+1]=this_step
+
+    for sample in samples:
+        print sample[0]
+    """
+
     samples = _drawsamples(disttype,gamma_params,n=n_samples)
 
     print "samples got"
