@@ -14,6 +14,7 @@ from util import build_datetime, Measurer
 
 from scipy.stats.mstats import mquantiles
 import numpy
+from numpy.random import binomial
 
 def home(req):
     #n = StopTimeUpdate.objects.all().count()
@@ -123,6 +124,19 @@ def _differentiate(ary):
         else:
             yield ary[i+1]-ary[i]
 
+def _sorta_equal(a,b,tolerance=0.0001):
+    # test if two numbers which could be None are quite close to one another
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    return abs(a-b)<tolerance
+
+def _change_chances(sequences):
+    for i in range( len(sequences[0])-1 ):
+        change = [not _sorta_equal(seq[i],seq[i+1]) for seq in sequences]
+        yield sum(change)/float(len(change))
+
 def _fit_and_wrap_gamma(rows):
     fit_params = []
     mean_speed = []
@@ -154,7 +168,6 @@ def _fit_and_wrap_loggamma(rows):
         return None
     for i in range(len(rows[0])):
         col = [row[i] for row in rows if row[i] is not None]
-        print "%d/%d"%(i,len(rows[0]))
 
         fit_alpha, fit_loc, fit_beta = loggamma.fit( col )
         if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
@@ -206,7 +219,6 @@ def _fit_and_wrap_uniform(rows):
     if len(rows)==0 or len(rows[0])==0:
         return None
     for i in range(len(rows[0])):
-        print "%s/%s"%(i,len(rows[0]))
         col = [row[i] for row in rows if row[i] is not None]
         if len(col)==0:
             mean_speed.append( (None, None, None) )
@@ -247,7 +259,6 @@ def _collect_trip_stats( trip, measurer, fittype ):
     run_speeds = []
     run_accels = []
     for run in runs:
-        print "run %s"%run
         run_speed = list(run.get_dist_speed(shapelen, resolution=resolution))
         run_accel = [x/resolution if x is not None else None for x in _differentiate(run_speed)]
         run_data.append( [run.start_date, 
@@ -258,6 +269,8 @@ def _collect_trip_stats( trip, measurer, fittype ):
         run_speeds.append( run_speed )
         run_accels.append( run_accel )
     print "done"
+
+    change_chances = list(_change_chances( run_speeds ))
 
     if fittype=="gamma":
         speed_fit_params, mean_speed = _fit_and_wrap_gamma( run_speeds )
@@ -279,7 +292,7 @@ def _collect_trip_stats( trip, measurer, fittype ):
     print "save that shit"
     # stow fit params for later use
     vsr,created = TripSpeedStats.objects.get_or_create(trip=trip) 
-    vsr.stats = json.dumps( [fittype,resolution,speed_fit_params,accel_fit_params] )
+    vsr.stats = json.dumps( [fittype,resolution,speed_fit_params,accel_fit_params,change_chances] )
     vsr.save()
     
     print "JUST ABOUT TO SEND"
@@ -406,8 +419,9 @@ def gpsdistviz( request ):
     trip_id = request.GET['trip_id']
     nocache=request.GET.get('nocache')
     fittype=request.GET.get('fittype')
+    debounce=request.GET.get('debounce',"true")
 
-    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id,'nocache':nocache,'fittype':fittype} )
+    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id,'nocache':nocache,'fittype':fittype,'debounce':debounce} )
 
 def routes( request ):
     routes = Route.objects.all()
@@ -482,18 +496,19 @@ def _drawsamples( disttype, params, n=1 ):
 
 def speedsamples( request ):
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-    disttype, resolution, params, accel_params = tripstats.stats_obj
+    disttype, resolution, params, accel_params, accel_chances = tripstats.stats_obj
     samples = [x[0] for x in _drawsamples(disttype, params,n=1)]
 
     return HttpResponse( json.dumps([resolution,samples]) )
 
 def pathsamples( request ):
-    n_samples = 60
+    n_samples = 120
     min_v = 0.1 #m/s
 
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
-    disttype, resolution, gamma_params, accel_params = tripstats.stats_obj
-   
+    debounce = request.GET.get('debounce')=='true'
+    disttype, resolution, gamma_params, accel_params, accel_chances = tripstats.stats_obj
+
     """
     accel_sample_metaset = _drawsamples(disttype,accel_params,n=n_samples)
 
@@ -515,6 +530,12 @@ def pathsamples( request ):
     """
 
     samples = _drawsamples(disttype,gamma_params,n=n_samples)
+
+    if debounce:
+        for i, accel_chance in enumerate(accel_chances):
+            for j in range(n_samples):
+                if not binomial(1,accel_chance):
+                    samples[i+1][j] = samples[i][j]
 
     print "samples got"
 

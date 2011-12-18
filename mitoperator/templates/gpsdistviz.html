@@ -23,6 +23,7 @@
   var maxtime=0;
   var mintime=0;
   var maxtime=0;
+  var debounce={{debounce}};
 
   var waitmode=false;
   var yscale=100;
@@ -193,7 +194,7 @@
         return;
       }
 
-      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt, function(data){
+      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt+'&debounce='+debounce, function(data){
         draw_trip_stats( trip_stat_data, false );
 
         hypotheticals=data;
