@@ -1,14 +1,14 @@
 <html>
 <head>
-  <script src="/js/processing.js"></script>
-  <script src="/js/jquery.js"></script>
+  <script src="/static/js/processing.js"></script>
+  <script src="/static/js/jquery.js"></script>
   </head>
-  <h2>Distance from trip start vs. time since schedule start</h2>
+  <h2>Distance from trip start (40 m ticks) vs. time since schedule start (1 minute ticks)</h2>
   <p><canvas id="canvas1" width="400" height="400"></canvas></p>
   <div id="prediction"></div>
-  <h2>Distance from start vs. speed</h2>
+  <h2>Distance from start (40 m ticks) vs. speed (1 m/s ticks)</h2>
   <p><canvas id="canvas2" width="400" height="400"></canvas></p>
-  <h2>Distance from start vs. acceleration ((m/s)/m)</h2>
+  <h2>Distance from start (40 m ticks) vs. acceleration (0.01 (m/s)/m ticks)</h2>
   <p><canvas id="canvas3", width="400" height="400"></canvas></p>
 
   <script id="script1" type="text/javascript">
@@ -24,6 +24,7 @@
   var mintime=0;
   var maxtime=0;
   var debounce={{debounce}};
+  var drawaccel={{drawaccel}};
 
   var waitmode=false;
   var yscale=100;
@@ -194,7 +195,7 @@
         return;
       }
 
-      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt+'&debounce='+debounce, function(data){
+      $.getJSON( '{% url pathsamples %}?trip_id='+current_trip_id+'&dd='+dd+'&tt='+tt+'&debounce='+debounce+'&drawaccel='+drawaccel, function(data){
         draw_trip_stats( trip_stat_data, false );
 
         hypotheticals=data;
