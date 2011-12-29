@@ -1,0 +1,22 @@
+<html>
+  <head>
+  <script src="/static/js/jquery.js"></script>
+  <script src="/static/js/jquery-websocket.js"></script>
+  <script>
+  $(document).ready(function(){
+
+    if( typeof WebSocket=="undefined" ) {
+       WebSocket=MozWebSocket;
+    }
+
+    var socket = new WebSocket("ws://18.85.28.171:8880/stops"); 
+    socket.onmessage = function(msg){$("#counter").html(msg.data)};
+
+  });
+  </script>
+  </head>
+  <body>
+    <div>this is the server counting, over websockets</div>
+    <div id="counter"></div>
+  </body>
+</html>
