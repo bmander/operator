@@ -25,6 +25,8 @@ urlpatterns = patterns('',
     url(r'^run/(.*)/(.*)$', 'main.views.run', name='run'),
     url(r'^speedsamples/$', 'main.views.speedsamples', name='speedsamples'),
     url(r'^pathsamples/$', 'main.views.pathsamples', name='pathsamples'),
+    url(r'^counter/$', 'main.views.counter', name='counter'),
+    url(r'^map$', 'main.views.map', name='map'),
 
     # url(r'^$', 'mitoperator.views.home', name='home'),
     # url(r'^mitoperator/', include('mitoperator.foo.urls')),
