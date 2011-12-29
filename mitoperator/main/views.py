@@ -137,6 +137,20 @@ def _change_chances(sequences):
         change = [not _sorta_equal(seq[i],seq[i+1]) for seq in sequences]
         yield sum(change)/float(len(change))
 
+from math import log
+def _mean(data):
+    return sum(data)/float(len(data))
+
+def _k_estimate(data):
+    ss = log(_mean(data)) - _mean([log(x) for x in data])
+    return (3-ss+((ss-3)**2+24*ss)**0.5)/(12*ss)
+
+def _gamma_fit(data):
+    kk = _k_estimate(data)
+    theta_hat = (1/float(kk))*_mean(data)
+
+    return kk, theta_hat
+
 def _fit_and_wrap_gamma(rows):
     fit_params = []
     mean_speed = []
@@ -145,7 +159,9 @@ def _fit_and_wrap_gamma(rows):
     for i in range(len(rows[0])):
         col = [row[i] for row in rows if row[i] is not None]
 
-        fit_alpha, fit_loc, fit_beta = gamma.fit( col, loc=0 )
+        fit_alpha, fit_loc, fit_beta = gamma.fit( col, floc=0 )
+        #fit_loc=0.0
+        #fit_alpha, fit_beta = _gamma_fit(col)
         if not (is_number_junk(fit_alpha) or is_number_junk(fit_loc) or is_number_junk(fit_beta)):
             fa,fb,fc=(gamma.ppf(0.05, fit_alpha, fit_loc, fit_beta),
                       gamma.ppf(0.5, fit_alpha, fit_loc, fit_beta),
@@ -274,7 +290,7 @@ def _collect_trip_stats( trip, measurer, fittype ):
 
     if fittype=="gamma":
         speed_fit_params, mean_speed = _fit_and_wrap_gamma( run_speeds )
-        accel_fit_params, mean_accel = _fit_and_wrap_gamma( run_accels )
+        accel_fit_params, mean_accel = ([],[])#_fit_and_wrap_gamma( run_accels )
     elif fittype=="loggamma":
         speed_fit_params, mean_speed = _fit_and_wrap_loggamma( run_speeds )
         accel_fit_params, mean_accel = _fit_and_wrap_loggamma( run_accels )
@@ -420,8 +436,9 @@ def gpsdistviz( request ):
     nocache=request.GET.get('nocache')
     fittype=request.GET.get('fittype')
     debounce=request.GET.get('debounce',"true")
+    drawaccel=request.GET.get('drawaccel',"false")
 
-    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id,'nocache':nocache,'fittype':fittype,'debounce':debounce} )
+    return render_to_response( "gpsdistviz.html",  {'trip_id':trip_id,'nocache':nocache,'fittype':fittype,'debounce':debounce,'drawaccel':drawaccel} )
 
 def routes( request ):
     routes = Route.objects.all()
@@ -475,9 +492,9 @@ def stoptime( request, id ):
 
 def _drawsamples( disttype, params, n=1 ):
     if disttype=='gamma':
-        samples = [gamma.rvs(a,b,c,size=n) if (a and b and c) else [None]*n for a,b,c, in params]
+        samples = [gamma.rvs(a,b,c,size=n) if (a is not None and b is not None and c is not None) else [None]*n for a,b,c, in params]
     elif disttype=='loggamma':
-        samples = [loggamma.rvs(a,b,c,size=n) if (a and b and c) else [None]*n for a,b,c, in params]
+        samples = [loggamma.rvs(a,b,c,size=n) if (a is not None and b is not None and c is not None) else [None]*n for a,b,c, in params]
     elif disttype=='uniform':
         samples = []
         for uniparams in params:
@@ -507,29 +524,30 @@ def pathsamples( request ):
 
     tripstats = TripSpeedStats.objects.get( trip__pk=request.GET['trip_id'] )
     debounce = request.GET.get('debounce')=='true'
+    drawaccel = request.GET.get('drawaccel')=='true'
     disttype, resolution, gamma_params, accel_params, accel_chances = tripstats.stats_obj
 
-    """
-    accel_sample_metaset = _drawsamples(disttype,accel_params,n=n_samples)
+    print accel_params
 
-    samples = [[]]*(len(accel_params)+1)
-    for i in range(n_samples):
-        samples[0] = _drawsamples(disttype, [gamma_params[0]], n=n_samples)[0]
-    for i, accel_samples in enumerate( accel_sample_metaset ):
-        last_step = samples[i]
-        this_step = []
-        for j in range(n_samples):
-            try:
-                this_step.append( last_step[j]+accel_samples[j]*40 )
-            except TypeError:
-                this_step.append( None )
-        samples[i+1]=this_step
+    if drawaccel:
+        accel_sample_metaset = _drawsamples(disttype,accel_params,n=n_samples)
 
-    for sample in samples:
-        print sample[0]
-    """
+        #print accel_sample_metaset
 
-    samples = _drawsamples(disttype,gamma_params,n=n_samples)
+        samples = [[]]*(len(accel_params)+1)
+        for i in range(n_samples):
+            samples[0] = _drawsamples(disttype, [gamma_params[0]], n=n_samples)[0]
+        for i, accel_samples in enumerate( accel_sample_metaset ):
+            last_step = samples[i]
+            this_step = []
+            for j in range(n_samples):
+                try:
+                    this_step.append( last_step[j]+accel_samples[j]*40 )
+                except TypeError:
+                    this_step.append( None )
+            samples[i+1]=this_step
+    else:
+        samples = _drawsamples(disttype,gamma_params,n=n_samples)
 
     if debounce:
         for i, accel_chance in enumerate(accel_chances):
@@ -586,3 +604,9 @@ def pathsamples( request ):
     print "done"
 
     return HttpResponse( json.dumps([paths,[low,mid,high],[list(sample) for sample in samples]]) )
+
+def counter(request):
+    return render_to_response( "counter.html" )
+
+def map(request):
+    return render_to_response( "map.html" )
