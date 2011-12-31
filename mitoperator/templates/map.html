@@ -2,10 +2,16 @@
 <head>
   <script src="/static/js/processing.js"></script>
   <script src="/static/js/jquery.js"></script>
-  </head>
-  <p><canvas id="canvas1" width="400" height="400"></canvas></p>
+  <script src="/static/js/socket.io.js"></script>
 
-  <script id="script1" type="text/javascript">
+  <script type="text/javascript">
+
+  var socket = io.connect('http://operator.media.mit.edu:1337');
+  //socket.on('news', function (data) {
+  //  console.log(data);
+  //  socket.emit('my other event', { my: 'data' });
+  //});
+
 
   $(document).ready(function(){
 
@@ -16,12 +22,13 @@
       processing.size( 1200,600 );
     }
 
-    // Override draw function, by default it will be called 60 times per second
     processing.draw = function() {
     };
 
 
-    processing.mouseClicked = function() {
+    processing.mouseDragged = function() {
+      //processing.line(processing.pmouseX, processing.pmouseY, processing.mouseX, processing.mouseY);
+      socket.emit( "line", [processing.pmouseX, processing.pmouseY, processing.mouseX, processing.mouseY] );
     }
                                                                                                           
   }
@@ -30,13 +37,22 @@
 
   var p = new Processing(canvas, sketchProc);
   p.background( 250 );
-  console.log(p);
-  p.line(0,0,p.width,p.height);
+
+  socket.emit( "size", [p.width, p.height] );
+
+
+  socket.on('line', function(data){
+    p.line(data[0],data[1],data[2],data[3]);
+  });
 
   });
   
   </script>
 
-<div style="height:0px;width:0px;overflow:hidden;"></div>
+</head>
+<body>
+  <p><canvas id="canvas1" width="400" height="400"></canvas></p>
+  <div style="height:0px;width:0px;overflow:hidden;"></div>
+</div>
 
 
