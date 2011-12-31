@@ -6,17 +6,11 @@
 
   <script type="text/javascript">
 
-  var socket = io.connect('http://operator.media.mit.edu:1337');
-  //socket.on('news', function (data) {
-  //  console.log(data);
-  //  socket.emit('my other event', { my: 'data' });
-  //});
-
-
   $(document).ready(function(){
 
-  function sketchProc(processing) {
+  var socket = io.connect('http://operator.media.mit.edu:1337');
 
+  function sketchProc(processing) {
 
     processing.setup = function() {
       processing.size( 1200,600 );
@@ -25,9 +19,7 @@
     processing.draw = function() {
     };
 
-
     processing.mouseDragged = function() {
-      //processing.line(processing.pmouseX, processing.pmouseY, processing.mouseX, processing.mouseY);
       socket.emit( "line", [processing.pmouseX, processing.pmouseY, processing.mouseX, processing.mouseY] );
     }
                                                                                                           
@@ -39,7 +31,6 @@
   p.background( 250 );
 
   socket.emit( "size", [p.width, p.height] );
-
 
   socket.on('line', function(data){
     p.line(data[0],data[1],data[2],data[3]);
