@@ -6,8 +6,29 @@
 
   <script type="text/javascript">
 
-  var xspan, yspan;
+  function Map(canvas,ll,bb,rr,tt){
+    this.ll = ll;
+    this.bb = bb;
+    this.rr = rr;
+    this.tt = tt;
+
+    this.pp = new Processing(canvas, function(pp) {
+      pp.setup = function() {
+        pp.size( 1200,600 );
+        pp.noFill();
+        pp.strokeWeight(1);
+        pp.background( 250 );
+      }
+    });
+                                                                                                          
+    this.pp.scale( this.pp.width/(rr-ll), -this.pp.height/(tt-bb) );
+    this.pp.pushMatrix();
+    this.pp.translate( -ll, -tt );
+
+  }
+
   var ll, bb, rr, tt;
+  var map;
 
   $(document).ready(function(){
 
@@ -21,9 +42,6 @@
   bb=minlat*infl;
   rr=maxlon*infl;
   tt=maxlat*infl;
-
-  xspan = (rr-ll);
-  yspan = (tt-bb);
 
   function testPattern(pp,ll,bb,rr,tt) {
 
@@ -39,42 +57,10 @@
       pp.line(0,-10,0,10);
   }
 
-  function metaDraw(pp) {
-      pp.scale( pp.width/xspan, -pp.height/yspan );
-      pp.pushMatrix();
-      pp.translate( -ll, -tt );
-
-      testPattern( pp, ll, bb, rr, tt );
-
-
-      pp.popMatrix();
-  }
-
-  function sketchProc(pp) {
-
-    pp.setup = function() {
-      pp.size( 1200,600 );
-      pp.noFill();
-      pp.strokeWeight(1);
-    }
-
-    pp.draw = function() {
-    };
-
-    pp.mouseDragged = function() {
-      socket.emit( "line", [pp.pmouseX, pp.pmouseY, pp.mouseX, pp.mouseY] );
-    }
-                                                                                                          
-  }
 
   var canvas = document.getElementById("canvas1");
 
-  var p = new Processing(canvas, sketchProc);
-  p.background( 250 );
-
-  p.scale( p.width/xspan, -p.height/yspan );
-  p.pushMatrix();
-  p.translate( -ll, -tt );
+  map = new Map( canvas, ll, bb, rr, tt );
 
   socket.emit( "map", [ll/infl,bb/infl,rr/infl,tt/infl] );
 
@@ -91,7 +77,7 @@
       newshape = false;
     } else {
       if( lastpoint ) {
-        p.line( lastpoint[0], lastpoint[1], data[0], data[1] );
+        map.pp.line( lastpoint[0], lastpoint[1], data[0], data[1] );
       }
     }
     lastpoint = data;
