@@ -6,21 +6,63 @@
 
   <script type="text/javascript">
 
+  var xspan, yspan;
+  var ll, bb, rr, tt;
+
   $(document).ready(function(){
 
   var socket = io.connect('http://operator.media.mit.edu:1337');
 
-  function sketchProc(processing) {
+  var minlon=-71.157, minlat=42.292, maxlon=-70.978,maxlat=42.425;
 
-    processing.setup = function() {
-      processing.size( 1200,600 );
+  var infl=10000;
+
+  ll=minlon*infl;
+  bb=minlat*infl;
+  rr=maxlon*infl;
+  tt=maxlat*infl;
+
+  xspan = (rr-ll);
+  yspan = (tt-bb);
+
+  function testPattern(pp,ll,bb,rr,tt) {
+
+      var xcent = (ll+rr)/2;
+      var ycent = (tt+bb)/2;
+
+      pp.rect( ll, bb, (rr-ll), (tt-bb) );
+      pp.line(xcent,ycent,rr,tt);
+      pp.line(ll,ycent,rr,ycent);
+      pp.line(xcent,bb,xcent,tt);
+          
+      pp.line(-10,0,10,0);
+      pp.line(0,-10,0,10);
+  }
+
+  function metaDraw(pp) {
+      pp.scale( pp.width/xspan, -pp.height/yspan );
+      pp.pushMatrix();
+      pp.translate( -ll, -tt );
+
+      testPattern( pp, ll, bb, rr, tt );
+
+
+      pp.popMatrix();
+  }
+
+  function sketchProc(pp) {
+
+    pp.setup = function() {
+      pp.size( 1200,600 );
+      pp.noFill();
+      pp.strokeWeight(1);
     }
 
-    processing.draw = function() {
+    pp.draw = function() {
     };
 
-    processing.mouseDragged = function() {
-      socket.emit( "line", [processing.pmouseX, processing.pmouseY, processing.mouseX, processing.mouseY] );
+    pp.mouseDragged = function() {
+      socket.emit( "line", [pp.pmouseX, pp.pmouseY, pp.mouseX, pp.mouseY] );
     }
                                                                                                           
   }
@@ -30,10 +72,29 @@
   var p = new Processing(canvas, sketchProc);
   p.background( 250 );
 
-  socket.emit( "size", [p.width, p.height] );
+  p.scale( p.width/xspan, -p.height/yspan );
+  p.pushMatrix();
+  p.translate( -ll, -tt );
 
-  socket.on('line', function(data){
-    p.line(data[0],data[1],data[2],data[3]);
+  socket.emit( "map", [ll/infl,bb/infl,rr/infl,tt/infl] );
+
+  var newshape=false;
+  socket.on('newshape', function(data){
+    //testPattern( p, ll, bb, rr, tt );
+
+    console.log("newshape "+data);
+    newshape=true;
+  });
+  var lastpoint = null;
+  socket.on('pt', function(data) {
+    if(newshape){
+      newshape = false;
+    } else {
+      if( lastpoint ) {
+        p.line( lastpoint[0], lastpoint[1], data[0], data[1] );
+      }
+    }
+    lastpoint = data;
   });
 
   });
