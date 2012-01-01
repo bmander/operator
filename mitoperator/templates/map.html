@@ -7,79 +7,76 @@
   <script type="text/javascript">
 
   function Map(canvas,ll,bb,rr,tt){
-    this.ll = ll;
-    this.bb = bb;
-    this.rr = rr;
-    this.tt = tt;
 
     this.pp = new Processing(canvas, function(pp) {
       pp.setup = function() {
         pp.size( 1200,600 );
         pp.noFill();
-        pp.strokeWeight(1);
+        pp.strokeWeight(0.5);
         pp.background( 250 );
       }
     });
                                                                                                           
-    this.pp.scale( this.pp.width/(rr-ll), -this.pp.height/(tt-bb) );
+    this.infl = this.pp.width/(rr-ll);
+
+    this.ll = ll*this.infl;
+    this.bb = bb*this.infl;
+    this.rr = rr*this.infl;
+    this.tt = tt*this.infl;
+
+    this.pp.scale( this.pp.width/(this.rr-this.ll), -this.pp.height/(this.tt-this.bb) );
     this.pp.pushMatrix();
-    this.pp.translate( -ll, -tt );
+    this.pp.translate( -this.ll, -this.tt );
+
+    this.line = function(x1,y1,x2,y2) {
+      this.pp.line( x1*this.infl,y1*this.infl,x2*this.infl,y2*this.infl );
+    }
+
+    this.startLine = function(){
+      this.pp.beginShape();
+    }
+
+    this.addPoint = function(x,y){
+      this.pp.vertex(x*this.infl, y*this.infl);
+    }
+
+    this.endLine = function() {
+      this.pp.endShape();
+    }
 
   }
 
-  var ll, bb, rr, tt;
   var map;
+  var minlon=-71.157, minlat=42.292, maxlon=-70.978,maxlat=42.425;
 
   $(document).ready(function(){
 
   var socket = io.connect('http://operator.media.mit.edu:1337');
-
-  var minlon=-71.157, minlat=42.292, maxlon=-70.978,maxlat=42.425;
-
-  var infl=10000;
-
-  ll=minlon*infl;
-  bb=minlat*infl;
-  rr=maxlon*infl;
-  tt=maxlat*infl;
-
-  function testPattern(pp,ll,bb,rr,tt) {
-
-      var xcent = (ll+rr)/2;
-      var ycent = (tt+bb)/2;
-
-      pp.rect( ll, bb, (rr-ll), (tt-bb) );
-      pp.line(xcent,ycent,rr,tt);
-      pp.line(ll,ycent,rr,ycent);
-      pp.line(xcent,bb,xcent,tt);
-          
-      pp.line(-10,0,10,0);
-      pp.line(0,-10,0,10);
-  }
-
-
   var canvas = document.getElementById("canvas1");
+  map = new Map( canvas, minlon, minlat, maxlon, maxlat );
 
-  map = new Map( canvas, ll, bb, rr, tt );
-
-  socket.emit( "map", [ll/infl,bb/infl,rr/infl,tt/infl] );
+  socket.emit( "map", [minlon,minlat,maxlon,maxlat] );
 
   var newshape=false;
   socket.on('newshape', function(data){
-    //testPattern( p, ll, bb, rr, tt );
-
     console.log("newshape "+data);
     newshape=true;
   });
+
   var lastpoint = null;
   socket.on('pt', function(data) {
     if(newshape){
       newshape = false;
-    } else {
-      if( lastpoint ) {
-        map.pp.line( lastpoint[0], lastpoint[1], data[0], data[1] );
-      }
+      map.endLine();
+      map.startLine();
     }
+    //} else {
+    //  if( lastpoint ) {
+    //    map.addPoint( data[0]/10000, 
+    //    map.line( lastpoint[0]/10000, lastpoint[1]/10000, data[0]/10000, data[1]/10000 );
+    //  }
+   // }
+    map.addPoint( data[0]/10000, data[1]/10000 );
     lastpoint = data;
   });
 
