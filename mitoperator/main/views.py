@@ -610,3 +610,6 @@ def counter(request):
 
 def map(request):
     return render_to_response( "map.html" )
+
+def game(request):
+    return render_to_response( "game.html" )

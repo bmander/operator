@@ -27,6 +27,7 @@ urlpatterns = patterns('',
     url(r'^pathsamples/$', 'main.views.pathsamples', name='pathsamples'),
     url(r'^counter/$', 'main.views.counter', name='counter'),
     url(r'^map$', 'main.views.map', name='map'),
+    url(r'^game$', 'main.views.game', name='game'),
 
     # url(r'^$', 'mitoperator.views.home', name='home'),
     # url(r'^mitoperator/', include('mitoperator.foo.urls')),
