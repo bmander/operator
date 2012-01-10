@@ -12,10 +12,32 @@
       var pmouseY=null;
 
       var currpath=null;
+      var background=null;
 
       function Path(ctx){
         this.ctx = ctx;
         this.pts = [];
+        this.draw = function() {
+          if( this.pts.length < 2 )
+            return;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo( this.pts[0][0], this.pts[0][1] );
+          for(var i=1; i<this.pts.length; i++) {
+            this.ctx.lineTo( this.pts[i][0], this.pts[i][1] );
+          }
+          this.ctx.stroke();
+        }
+        this.drawLast = function() {
+          if( this.pts.length < 2 )
+            return;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo( this.pts[this.pts.length-2][0], this.pts[this.pts.length-2][1] );
+          this.ctx.lineTo( this.pts[this.pts.length-1][0], this.pts[this.pts.length-1][1] );
+          this.ctx.stroke();
+        }
+
       }
 
       $(document).ready( function() {
@@ -29,6 +51,7 @@
           if (!event) /* For IE. */
             event = window.event;
           if (event.wheelDelta) { /* IE/Opera. */
+            r
             delta = event.wheelDelta/120;
           } else if (event.detail) { /** Mozilla case. */
           /** In Mozilla, sign of delta is different than in IE.
@@ -56,21 +79,27 @@
 
         canvas.onmousedown = function(ev) {
           if(ev.button==0) {
-            drawing=true;
+            ctx.lineWidth=5;
+
+            currpath = new Path(ctx);
+            background = ctx.getImageData(0,0,canvas.width,canvas.height);
           }
         }
         canvas.onmouseup = function(ev) {
-          if(drawing){
-            drawing=false;
+          if(currpath){
+            //ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.putImageData(background,0,0);
+
+            ctx.lineWidth=1;
+            currpath.draw();
+            currpath = null;
           }
         }
 
         canvas.onmousemove = function(ev){
-          if(drawing && pmouseX) {
-            ctx.beginPath();
-            ctx.moveTo(pmouseX,pmouseY);
-            ctx.lineTo(ev.offsetX, ev.offsetY);
-            ctx.stroke();
+          if(currpath) {
+            currpath.pts.push( [ev.offsetX, ev.offsetY] );
+            currpath.drawLast();
           }
           pmouseX=ev.offsetX;
           pmouseY=ev.offsetY;
