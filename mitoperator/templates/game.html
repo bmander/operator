@@ -6,7 +6,6 @@
     <script type="text/javascript">
       var canvas;
       var ctx;
-      var drawing=false;
       var paths = [];
 
       var pmouseX=null;
@@ -15,10 +14,12 @@
       var currpath=null;
       var background=null;
 
-      var xtrans=0;
-      var ytrans=0;
-      var xscale=1;
-      var yscale=1;
+      var ll=0;
+      var rr=1000;
+      var tt=0;
+      var bb=1000;
+
+      var img;
 
       function Path(ctx){
         this.ctx = ctx;
@@ -47,26 +48,46 @@
       }
 
       $(document).ready( function() {
+        img = new Image();
+        img.src="/static/img/boston.png";
 
         function apply_transform(){
           ctx.setTransform(1,0,0,1,0,0);
-          ctx.translate( xtrans, ytrans );
+
+          var xscale = canvas.width/(rr-ll);
+          var yscale = canvas.height/(bb-tt);
+
+          ctx.translate( -ll*xscale, -tt*yscale );
+          ctx.scale(xscale,yscale);
         }
 
-        function handle(delta) {
+        function handle(delta, x, y) {
 
-          xscale = xscale*Math.pow(1.1,delta);
-          yscale = yscale*Math.pow(1.1,delta);
+          var scalefactor = Math.pow(1.1,delta);
 
-          console.log( xscale );
+          var newwidth = (rr-ll)*scalefactor;
+          var newheight = (bb-tt)*scalefactor;
+
+          var smidgex = x/canvas.width;
+          var smidgey = y/canvas.height;
+
+          var centerx = (rr-ll)*smidgex + ll;
+          var centery = (bb-tt)*smidgey + tt;
+
+          ll = centerx - newwidth*(smidgex);
+          rr = centerx + newwidth*(1-smidgex);
+          tt = centery - newheight*(smidgey);
+          bb = centery + newheight*(1-smidgey);
 
           apply_transform();
 
-          //ctx.scale( Math.pow(1.1,delta), Math.pow(1.1,delta) );
-          //redraw();
+          redraw();
         }
 
         function wheel(event){
+          if( event.srcElement!=canvas )
+            return true;
+
           var delta = 0;
           if (!event) /* For IE. */
             event = window.event;
@@ -83,7 +104,7 @@
             * and negative, if wheel was scrolled down.
             */
           if (delta)
-            handle(delta);
+            handle(delta, event.offsetX, event.offsetY);
           /** Prevent default actions caused by mouse wheel.
             * That might be ugly, but we handle scrolls somehow
             * anyway, so don't bother here..
@@ -96,9 +117,8 @@
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
 
-        //xtrans = canvas.width/2;
-        //ytrans = canvas.height/2;
-        //ctx.translate(xtrans,ytrans);
+        apply_transform()
+        redraw();
 
         canvas.onmousedown = function(ev) {
           if(ev.button==0) {
@@ -110,7 +130,6 @@
         }
 
         function draw_new_path(){
-            console.log(currpath)
             ctx.putImageData(background,0,0);
             ctx.lineWidth=1;
             currpath.draw();
@@ -131,19 +150,22 @@
         }
 
         function screenX(x) {
-          return x-xtrans;
+          return (x/canvas.width)*(rr-ll)+ll;
         }
 
         function screenY(y) {
-          return y-ytrans;
+          return (y/canvas.height)*(bb-tt)+tt;
         }
 
         function redraw() {
-            ctx.clearRect( screenX(0),screenY(0),canvas.width,canvas.height );
+            ctx.clearRect( ll,tt,(rr-ll),(bb-tt) );
+
+            ctx.drawImage(img,0,0,img.width*30,img.height*30);
 
             for(var i=0; i<paths.length; i++){
               paths[i].draw();
             }
+
         }
 
         canvas.onmousemove = function(ev){
@@ -151,8 +173,12 @@
             currpath.pts.push( [screenX(ev.offsetX), screenY(ev.offsetY)] );
             currpath.drawLast();
           } else if( ev.button==2 ) {
-            xtrans += (ev.offsetX-pmouseX);
-            ytrans += (ev.offsetY-pmouseY);
+            var deltax = screenX(ev.offsetX)-screenX(pmouseX);
+            var deltay = screenY(ev.offsetY)-screenY(pmouseY);
+            ll -= deltax;
+            rr -= deltax;
+            bb -= deltay;
+            tt -= deltay;
 
             apply_transform();
             redraw();
@@ -176,7 +202,7 @@
       });
     </script>
   </head>
-  <body>
-    <canvas id="canvas" width="1000" height="1000"></canvas>
+  <body style="background-color:#ffeeee">
+    <canvas style="background-color:#ffffff" id="canvas" width="1000" height="1000"></canvas>
   </body>
 </html>
