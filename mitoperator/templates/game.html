@@ -85,30 +85,31 @@
         }
 
         function wheel(event){
-          if( event.srcElement!=canvas )
+          console.log( event );
+          
+          if( event.target!=canvas )
             return true;
 
           var delta = 0;
-          if (!event) /* For IE. */
+          if (!event)  // For IE. 
             event = window.event;
-          if (event.wheelDelta) { /* IE/Opera. */
+          if (event.wheelDelta) { // IE/Opera. 
             delta = event.wheelDelta/120;
-          } else if (event.detail) { /** Mozilla case. */
-          /** In Mozilla, sign of delta is different than in IE.
-            * Also, delta is multiple of 3.
-            */
+          } else if (event.detail) { // Mozilla case. 
+          // In Mozilla, sign of delta is different than in IE.
+          // Also, delta is multiple of 3.
             delta = -event.detail/3;
           }
-          /** If delta is nonzero, handle it.
-            * Basically, delta is now positive if wheel was scrolled up,
-            * and negative, if wheel was scrolled down.
-            */
+          // If delta is nonzero, handle it.
+          // Basically, delta is now positive if wheel was scrolled up,
+          // and negative, if wheel was scrolled down.
+          
           if (delta)
-            handle(delta, event.offsetX, event.offsetY);
-          /** Prevent default actions caused by mouse wheel.
-            * That might be ugly, but we handle scrolls somehow
-            * anyway, so don't bother here..
-            */
+            handle(delta, mouseX(event), mouseY(event));
+          // Prevent default actions caused by mouse wheel.
+          // That might be ugly, but we handle scrolls somehow
+          // anyway, so don't bother here..
+         
           if (event.preventDefault)
             event.preventDefault();
           event.returnValue = false;
@@ -116,11 +117,12 @@
 
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
-
+        
         apply_transform()
         redraw();
 
         canvas.onmousedown = function(ev) {
+          console.log(ev);
           if(ev.button==0) {
             ctx.lineWidth=5;
 
@@ -137,16 +139,23 @@
             paths.push( currpath );
             currpath = null;
         }
-
+        
         canvas.onmouseup = function(ev) {
           if(currpath){
             draw_new_path();
           } else if( ev.button==2 ) {
           }
         }
-
+        
         canvas.oncontextmenu = function(ev) {
           return false;
+        }
+
+        function mouseX(ev) {
+          return ev.clientX - ev.target.offsetLeft;
+        }
+        function mouseY(ev) {
+          return ev.clientY - ev.target.offsetTop;
         }
 
         function screenX(x) {
@@ -156,7 +165,7 @@
         function screenY(y) {
           return (y/canvas.height)*(bb-tt)+tt;
         }
-
+        
         function redraw() {
             ctx.clearRect( ll,tt,(rr-ll),(bb-tt) );
 
@@ -170,11 +179,11 @@
 
         canvas.onmousemove = function(ev){
           if(currpath) {
-            currpath.pts.push( [screenX(ev.offsetX), screenY(ev.offsetY)] );
+            currpath.pts.push( [screenX(mouseX(ev)), screenY(mouseY(ev))] );
             currpath.drawLast();
           } else if( ev.button==2 ) {
-            var deltax = screenX(ev.offsetX)-screenX(pmouseX);
-            var deltay = screenY(ev.offsetY)-screenY(pmouseY);
+            var deltax = screenX(mouseX(ev))-screenX(pmouseX);
+            var deltay = screenY(mouseY(ev))-screenY(pmouseY);
             ll -= deltax;
             rr -= deltax;
             bb -= deltay;
@@ -184,8 +193,8 @@
             redraw();
           }
 
-          pmouseX=ev.offsetX;
-          pmouseY=ev.offsetY;
+          pmouseX=mouseX(ev);
+          pmouseY=mouseY(ev);
         }
 
         canvas.onmouseout = function(ev) {
@@ -195,9 +204,9 @@
         }
 
         if (window.addEventListener)
-          /** DOMMouseScroll is for mozilla. */
+          // DOMMouseScroll is for mozilla.
           window.addEventListener('DOMMouseScroll', wheel, false);
-        /** IE/Opera. */
+        // IE/Opera.
         window.onmousewheel = document.onmousewheel = wheel;
       });
     </script>
