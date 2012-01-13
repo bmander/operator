@@ -19,7 +19,7 @@
       var tt=0;
       var bb=1000;
 
-      var img;
+      var landcover;
 
       function Path(ctx){
         this.ctx = ctx;
@@ -47,9 +47,35 @@
 
       }
 
+      function Landcover(ctx,imgsrc,xres,yres){
+        this.ctx = ctx;
+        this.xres = xres;
+        this.yres = yres;
+
+        this.img = new Image();
+        var superthis=this;
+        this.img.onload=function(ev){
+          var cvs = document.createElement('canvas');
+          var ctx = cvs.getContext('2d');
+          ctx.drawImage(this,0,0,this.width,this.height);
+          superthis.imgdata = ctx.getImageData(0,0,this.width,this.height);
+        };
+        this.img.src=imgsrc;
+
+        this.draw = function() {
+            this.ctx.drawImage(this.img,0,0,this.img.width*this.xres,this.img.height*this.yres);
+        }
+
+        this.pick = function(x,y){
+          var imgx = Math.floor(x/this.xres);
+          var imgy = Math.floor(y/this.yres);
+
+          var index = imgy*this.img.width+imgx;
+          return [ this.imgdata.data[index*4],this.imgdata.data[index*4+1],this.imgdata.data[index*4+2], this.imgdata.data[index*4+3] ]
+        }
+      }
+
       $(document).ready( function() {
-        img = new Image();
-        img.src="/static/img/boston.png";
 
         function apply_transform(){
           ctx.setTransform(1,0,0,1,0,0);
@@ -85,7 +111,6 @@
         }
 
         function wheel(event){
-          console.log( event );
           
           if( event.target!=canvas )
             return true;
@@ -118,11 +143,12 @@
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
         
+        landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30 );
+
         apply_transform()
         redraw();
 
         canvas.onmousedown = function(ev) {
-          console.log(ev);
           if(ev.button==0) {
             ctx.lineWidth=5;
 
@@ -169,7 +195,7 @@
         function redraw() {
             ctx.clearRect( ll,tt,(rr-ll),(bb-tt) );
 
-            ctx.drawImage(img,0,0,img.width*30,img.height*30);
+            landcover.draw();
 
             for(var i=0; i<paths.length; i++){
               paths[i].draw();
@@ -193,6 +219,10 @@
             redraw();
           }
 
+          //paint background
+          var color = landcover.pick(screenX(mouseX(ev)),screenY(mouseY(ev)));
+          $("body").css("background-color", "rgba("+color[0]+","+color[1]+","+color[2]+",1)");
+
           pmouseX=mouseX(ev);
           pmouseY=mouseY(ev);
         }
@@ -212,6 +242,6 @@
     </script>
   </head>
   <body style="background-color:#ffeeee">
-    <canvas style="background-color:#ffffff" id="canvas" width="1000" height="1000"></canvas>
+    <canvas style="background-color:#ffffff;image-rendering:optimizeSpeed" id="canvas" width="1000" height="1000"></canvas>
   </body>
 </html>
