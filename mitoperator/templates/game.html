@@ -12,7 +12,6 @@
       var pmouseY=null;
 
       var currpath=null;
-      var background=null;
 
       var ll=0;
       var rr=1000;
@@ -246,7 +245,7 @@
           var loop;
           loop = function() {
             console.log( "tick" );
-            crop.update( 0.001 );
+            crop.update( 0.0004 );
             redraw();
             setTimeout( loop, 100 );
           }
@@ -266,12 +265,10 @@
 
           if(ev.button==0) {
             currpath = new Path(ctx);
-            background = ctx.getImageData(0,0,canvas.width,canvas.height);
           }
         }
 
         function draw_new_path(){
-            ctx.putImageData(background,0,0);
             currpath.draw();
 
             paths.push( currpath );
