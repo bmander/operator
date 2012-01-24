@@ -20,6 +20,21 @@
 
       var landcover;
       var crop;
+      var person;
+
+      function Person(x,y) {
+        this.selected = false;
+
+        this.draw = function(ctx) {
+          ctx.beginPath();
+          ctx.arc(x,y,0.25,0,2*Math.PI,false);
+          ctx.stroke();
+        }
+
+        this.attemptSelect = function(x,y){
+          console.log( this.x, this.y, x, y );
+        }
+      }
 
       function Path(ctx){
         this.ctx = ctx;
@@ -185,7 +200,7 @@
 
         function handle(delta, x, y) {
 
-          var scalefactor = Math.pow(1.1,delta);
+          var scalefactor = Math.pow(1.1,-delta);
 
           var newwidth = (rr-ll)*scalefactor;
           var newheight = (bb-tt)*scalefactor;
@@ -238,13 +253,14 @@
 
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
+
+        person = new Person(10,10);
         
         landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30, function(){
           crop = new Crop(landcover);
 
           var loop;
           loop = function() {
-            console.log( "tick" );
             crop.update( 0.0004 );
             redraw();
             setTimeout( loop, 100 );
@@ -258,10 +274,10 @@
 
         canvas.onmousedown = function(ev) {
           //paint background
-          var color = landcover.pick(screenX(mouseX(ev)),screenY(mouseY(ev)));
+          var color = landcover.pick(mapX(mouseX(ev)),mapY(mouseY(ev)));
           var colorstr = "rgba("+color[0]+","+color[1]+","+color[2]+",1)";
           $("body").css("background-color", colorstr);
-          $("#readout").html( landcover.classify(screenX(mouseX(ev)),screenY(mouseY(ev))));
+          $("#readout").html( landcover.classify(mapX(mouseX(ev)),mapY(mouseY(ev))));
 
           if(ev.button==0) {
             currpath = new Path(ctx);
@@ -284,6 +300,10 @@
         
         canvas.oncontextmenu = function(ev) {
           return false;
+        }
+
+        canvas.onclick = function(ev) {
+          
         }
 
         function mouseX(ev) {
@@ -311,11 +331,11 @@
           return posy - ev.target.offsetTop;
         }
 
-        function screenX(x) {
+        function mapX(x) {
           return (x/canvas.width)*(rr-ll)+ll;
         }
 
-        function screenY(y) {
+        function mapY(y) {
           return (y/canvas.height)*(bb-tt)+tt;
         }
         
@@ -336,18 +356,20 @@
               paths[i].draw();
             }
 
+            person.draw(ctx);
+
         }
 
         canvas.onmousemove = function(ev){
           if(currpath) {
-            currpath.pts.push( [screenX(mouseX(ev)), screenY(mouseY(ev))] );
+            currpath.pts.push( [mapX(mouseX(ev)), mapY(mouseY(ev))] );
 
             ctx.lineWidth=5;
             currpath.drawLast();
             ctx.lineWidth=1;
           } else if( ev.button==2 ) {
-            var deltax = screenX(mouseX(ev))-screenX(pmouseX);
-            var deltay = screenY(mouseY(ev))-screenY(pmouseY);
+            var deltax = mapX(mouseX(ev))-mapX(pmouseX);
+            var deltay = mapY(mouseY(ev))-mapY(pmouseY);
             ll -= deltax;
             rr -= deltax;
             bb -= deltay;
