@@ -31,6 +31,10 @@
         this.x = x;
         this.y = y;
         this.selected = false;
+        this.fat = 0;
+
+        this.waypoints = [];
+        this.currWaypoint=0;
 
         this.draw = function(ctx) {
           ctx.beginPath();
@@ -41,13 +45,81 @@
           }
           ctx.lineWidth=0.05;
           ctx.stroke();
+
+          if(this.waypoints.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(this.waypoints[0][0],this.waypoints[0][1]);
+            for(var i=1; i<this.waypoints.length; i++){
+              var wp = this.waypoints[i];
+              ctx.lineTo(wp[0],wp[1]);
+            }
+            ctx.lineTo(this.waypoints[0][0],this.waypoints[0][1]);
+            ctx.stroke();
+          }
         }
 
         this.attemptSelect = function(x,y){
           var dd = dist(this.x,this.y,x,y);
           if( dd <= this.RADIUS ) {
             this.selected = !this.selected;
+            return true;
           }
+          return false;
+        }
+
+        this.startRoute = function() {
+          this.waypoints = []
+          this.currWaypoint=0
+          this.waypoints.push( [this.x, this.y] );
+        }
+
+        this.addWaypoint = function(x,y) {
+          this.waypoints.push( [x,y] );
+        }
+
+        this.advance = function(v,dt) {
+          if(this.waypoints.length < 2){
+            return;
+          }
+
+          var ds = v*dt; // m/s * s = m 
+          
+          // find which waypoint leg it's on
+          var legstart=0;
+          var x1 = this.x;
+          var y1 = this.y;
+          for(var i=this.currWaypoint; i<this.waypoints.length+1; i++) {
+            // if past the last waypoint, loop around to the first
+            var wp;
+            if(i==this.waypoints.length)
+              wp = this.waypoints[0];
+            else
+              wp = this.waypoints[i];
+
+            //find bounds of leg
+            var leglen = dist(x1,y1,wp[0],wp[1]);
+            var legend = legstart + leglen;
+
+            if( ds >= legstart && ds <= legend ) {
+              var legdist = ds - legstart; 
+              var legprogress = legdist/leglen;
+              this.x = (wp[0]-x1)*legprogress+x1;
+              this.y = (wp[1]-y1)*legprogress+y1;
+              break;
+            }
+            if( ds > legend ) {
+              console.log( "off the deepend" );
+            }
+
+            x1 = wp[0];
+            y1 = wp[1];
+            legstart = legend;
+            this.currWaypoint += 1;
+          }
+        }
+
+        this.pick = function( crop ) {
+          this.fat += crop.pick(this.x,this.y);
         }
       }
 
@@ -127,11 +199,15 @@
           return [this.imgdata.data[i*4], this.imgdata.data[i*4+1], this.imgdata.data[i*4+2]];
         }
 
-        this.pick = function(x,y){
+        this.getIndex = function(x,y){
           var imgx = Math.floor(x/this.xres);
           var imgy = Math.floor(y/this.yres);
 
-          var index = imgy*this.img.width+imgx;
+          return imgy*this.img.width+imgx;
+        }
+
+        this.pick = function(x,y){
+          var index = this.getIndex(x,y);
           return [ this.imgdata.data[index*4],this.imgdata.data[index*4+1],this.imgdata.data[index*4+2], this.imgdata.data[index*4+3] ]
         }
 
@@ -173,7 +249,7 @@
           for(var i=0; i<this.yield.length; i++) {
             if( this.yield[i] < 1 ) {
               var baserate = this.rates[i]*period;
-              this.yield[i] += baserate/2 + (baserate/2)*Math.random();
+              this.yield[i] += baserate*Math.random();
             }
           }
         }
@@ -197,6 +273,14 @@
 
           //draw it
           ctx.drawImage( tmpcvs, 0, 0, id.width*this.landcover.xres, id.height*this.landcover.yres );
+        }
+
+        this.pick = function( x, y ) {
+          var index = this.landcover.getIndex( x, y );
+          if( this.yield[index] > 1 ) {
+            this.yield[index]=0;
+            return 1;
+          }
         }
 
       }
@@ -282,6 +366,13 @@
           }
           loop();
 
+          var personAdvance = function() {
+            person.advance(30, 0.01);
+            person.pick(crop);
+            setTimeout( personAdvance, 10 );
+          }
+          personAdvance();
+
           apply_transform()
           redraw();
         });
@@ -318,7 +409,15 @@
         }
 
         canvas.onclick = function(ev) {
-          person.attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
+          var clicked = person.attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
+          if(person.selected && clicked) {
+            person.startRoute();
+          }
+
+          if(person.selected && !clicked){
+            person.addWaypoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
+          }
+
           redraw();
         }
 
