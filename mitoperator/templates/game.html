@@ -6,12 +6,9 @@
     <script type="text/javascript">
       var canvas;
       var ctx;
-      var paths = [];
 
       var pmouseX=null;
       var pmouseY=null;
-
-      var currpath=null;
 
       var ll=0;
       var rr=1000;
@@ -22,8 +19,34 @@
       var crop;
       var person;
 
+      var gobutton;
+
       function dist(x1,y1,x2,y2) {
         return Math.sqrt( Math.pow(x1-x2,2)+Math.pow(y1-y2,2) );
+      }
+      function mag(x,y){
+        return Math.sqrt( Math.pow(x,2)+Math.pow(y,2) );
+      }
+
+      function Button(id) {
+        this.div = document.getElementById(id);
+        this.div.button = this;
+        this.selected = false;
+
+        this.toggle = function() {
+          if(!this.selected) {
+            $(this.div).css('outline','#000000 solid 2px');
+          } else {
+            $(this.div).css('outline','#000000 none 2px');
+          }
+          this.selected = !this.selected;
+        }
+
+        $(this.div).click(function(ev){
+          console.log(ev.target.button);
+          this.button.toggle();
+        });
+
       }
 
       function Person(x,y) {
@@ -32,6 +55,8 @@
         this.y = y;
         this.selected = false;
         this.fat = 0;
+
+        this.command=null;
 
         this.waypoints = [];
         this.currWaypoint=0;
@@ -83,39 +108,25 @@
           }
 
           var ds = v*dt; // m/s * s = m 
-          
-          // find which waypoint leg it's on
-          var legstart=0;
-          var x1 = this.x;
-          var y1 = this.y;
-          for(var i=this.currWaypoint; i<this.waypoints.length+1; i++) {
-            // if past the last waypoint, loop around to the first
-            var wp;
-            if(i==this.waypoints.length)
-              wp = this.waypoints[0];
-            else
-              wp = this.waypoints[i];
 
-            //find bounds of leg
-            var leglen = dist(x1,y1,wp[0],wp[1]);
-            var legend = legstart + leglen;
+          while( ds > 0 ) {
+            var wp = this.waypoints[this.currWaypoint];
 
-            if( ds >= legstart && ds <= legend ) {
-              var legdist = ds - legstart; 
-              var legprogress = legdist/leglen;
-              this.x = (wp[0]-x1)*legprogress+x1;
-              this.y = (wp[1]-y1)*legprogress+y1;
+            // vector to next waypoint
+            var goal = [wp[0]-this.x,wp[1]-this.y];
+            var goaldist = mag(goal[0], goal[1]);
+            
+            if(goaldist > ds) {
+              var goaldir = [goal[0]/goaldist, goal[1]/goaldist];
+              this.x += goaldir[0]*ds;
+              this.y += goaldir[1]*ds;
               break;
+            } else {
+              ds -= goaldist;
+              this.currWaypoint = (this.currWaypoint+1)%this.waypoints.length;
             }
-            if( ds > legend ) {
-              console.log( "off the deepend" );
-            }
-
-            x1 = wp[0];
-            y1 = wp[1];
-            legstart = legend;
-            this.currWaypoint += 1;
           }
+          
         }
 
         this.pick = function( crop ) {
@@ -353,54 +364,66 @@
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
 
-        person = new Person(10,10);
+        person = new Person(100,100);
         
         landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30, function(){
           crop = new Crop(landcover);
 
-          var loop;
-          loop = function() {
+          var croploop = function() {
             crop.update( 0.0004 );
-            redraw();
-            setTimeout( loop, 100 );
+            setTimeout( croploop, 100 );
           }
-          loop();
+          croploop();
 
           var personAdvance = function() {
-            person.advance(30, 0.01);
+            person.advance(1, 0.30);
             person.pick(crop);
             setTimeout( personAdvance, 10 );
           }
           personAdvance();
 
-          apply_transform()
+          var redrawloop = function() {
+            redraw();
+            setTimeout( redrawloop, 1000/30 );
+          }
+          redrawloop();
+
+          apply_transform();
           redraw();
         });
 
 
         canvas.onmousedown = function(ev) {
-          //paint background
-          var color = landcover.pick(mapX(mouseX(ev)),mapY(mouseY(ev)));
-          var colorstr = "rgba("+color[0]+","+color[1]+","+color[2]+",1)";
-          $("body").css("background-color", colorstr);
-          $("#readout").html( landcover.classify(mapX(mouseX(ev)),mapY(mouseY(ev))));
+          console.log(ev.button);
+          if(ev.button==0){
+            var clicked = person.attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
+            if(person.selected && clicked) {
+              person.startRoute();
+            }
 
-          if(ev.button==0) {
-            currpath = new Path(ctx);
+            if(person.selected && !clicked){
+              person.addWaypoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
+            }
+
+            redraw();
           }
-        }
-
-        function draw_new_path(){
-            currpath.draw();
-
-            paths.push( currpath );
-            currpath = null;
         }
         
         canvas.onmouseup = function(ev) {
-          if(currpath){
-            draw_new_path();
-          } else if( ev.button==2 ) {
+        }
+
+        document.onkeypress = function(ev) {
+          var key = String.fromCharCode( ev.charCode );
+          if( key==="s" ) {
+            if(person.selected)
+              person.startRoute();
+          } else if(key==='.') {
+            ll = person.x-30;
+            rr = person.x+30;
+            bb = person.y+30;
+            tt = person.y-30;
+            apply_transform();
+            redraw();
           }
         }
         
@@ -409,16 +432,6 @@
         }
 
         canvas.onclick = function(ev) {
-          var clicked = person.attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
-          if(person.selected && clicked) {
-            person.startRoute();
-          }
-
-          if(person.selected && !clicked){
-            person.addWaypoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
-          }
-
-          redraw();
         }
 
         function mouseX(ev) {
@@ -461,28 +474,13 @@
 
             crop.draw(ctx);
 
-            if(currpath){
-              ctx.lineWidth = 5;
-              currpath.draw();
-              ctx.lineWidth = 1;
-            }
-
-            for(var i=0; i<paths.length; i++){
-              paths[i].draw();
-            }
-
             person.draw(ctx);
 
         }
 
-        canvas.onmousemove = function(ev){
-          if(currpath) {
-            currpath.pts.push( [mapX(mouseX(ev)), mapY(mouseY(ev))] );
 
-            ctx.lineWidth=5;
-            currpath.drawLast();
-            ctx.lineWidth=1;
-          } else if( ev.button==2 ) {
+        canvas.onmousemove = function(ev){
+          if( ev.button==2 ) {
             var deltax = mapX(mouseX(ev))-mapX(pmouseX);
             var deltay = mapY(mouseY(ev))-mapY(pmouseY);
             ll -= deltax;
@@ -500,9 +498,6 @@
         }
 
         canvas.onmouseout = function(ev) {
-          if(currpath) {
-            draw_new_path();
-          }
         }
 
         if (window.addEventListener)
@@ -511,11 +506,17 @@
         // IE/Opera.
         window.onmousewheel = document.onmousewheel = wheel;
 
+        gobutton = new Button("commandgo");
+
       });
     </script>
   </head>
   <body style="background-color:#ffeeee">
-    <canvas style="background-color:#ffffff;image-rendering:optimizeSpeed" id="canvas" width="1000" height="1000"></canvas>
-    <div id="readout"></div>
+    <canvas style="float:left;background-color:#ffffff;image-rendering:optimizeSpeed" id="canvas" width="1000" height="1000"></canvas>
+    <div style="float:left;cursor:default">
+    <div style="width:100;height:50;background-color:yellow;" id="commandgo">(g)o</div>
+    <div style="width:100;height:50;background-color:#ff00ff;" id="commandroute">(r)oute</div>
+    <div style="width:100;height:50;background-color:#00ff00;" id="commandstop">(s)top</div>
+    <div>
   </body>
 </html>
