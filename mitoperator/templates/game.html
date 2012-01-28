@@ -18,13 +18,55 @@
       var landcover;
       var crop;
 
-      var person;
+      var people = []
+      var currPerson=0;
 
       function dist(x1,y1,x2,y2) {
         return Math.sqrt( Math.pow(x1-x2,2)+Math.pow(y1-y2,2) );
       }
       function mag(x,y){
         return Math.sqrt( Math.pow(x,2)+Math.pow(y,2) );
+      }
+
+      function Menu(div){
+        this.div = div;
+        this.buttons = {};
+
+        this.addButton = function(button){
+          this.buttons[button.shortcut]=button;
+        }
+
+        this.registerButton = function( label, shortcut, onselect, onunselect ) {
+          var button = new Button(label, shortcut);
+          button.onselect = onselect;
+          button.onunselect = onunselect;
+          this.addButton(button);
+        }
+
+        this.fillMenu = function(){
+          for(var key in this.buttons){
+            this.div.appendChild( this.buttons[key].div );
+          }
+        }
+
+        this.clearMenu = function(){
+          this.div.innerHTML="";
+        }
+
+        this.unselectAllBut = function(pass){
+          for(var key in this.buttons){
+            if(key!==pass)
+              this.buttons[key].unselect();
+          }
+        }
+
+        this.select = function(shortcut){
+          this.buttons[shortcut].select();
+        }
+
+        this.unselect = function(shortcut){
+          this.buttons[shortcut].unselect();
+        }
       }
 
       function Button(label, shortcut) {
@@ -85,53 +127,34 @@
         this.waypoints = [];
         this.currWaypoint=0;
 
-        this.menu = menudiv; 
-
-        this.buttons = [];
-
-        this.registerButton = function( label, shortcut, onselect, onunselect ) {
-          var button = new Button(label, shortcut);
-          button.onselect = onselect;
-          button.onunselect = onunselect;
-          this.buttons.push( button );
-        }
-
-        this.fillMenu = function(){
-          for(var i=0; i<this.buttons.length; i++){
-            this.menu.appendChild( this.buttons[i].div );
-          }
-        }
-
-        this.clearMenu = function(){
-          this.menu.innerHTML="";
-        }
+        this.menu = new Menu(menudiv);
 
         var superthis=this;
-        this.registerButton( "(g)o", "g",
+        this.menu.registerButton( "(g)o", "g",
         function(){
-          for(var i=0; i<superthis.buttons.length; i++){
-            if(superthis.buttons[i]!=this)
-              superthis.buttons[i].unselect();
-          }
+          superthis.menu.unselectAllBut("g");
           superthis.command = "go";
         }, function() {
           superthis.waypoints=[];
           superthis.currWaypoint=0;
           superthis.command = null;
         });
-        this.registerButton( "(r)oute", "r",
+
+        this.menu.registerButton( "(r)oute", "r",
         function() {
-          for(var i=0; i<superthis.buttons.length; i++){
-            if(superthis.buttons[i]!=this)
-              superthis.buttons[i].unselect();
-          }
+          superthis.menu.unselectAllBut("r");
           superthis.command = "route";
         }, function() {
           superthis.waypoints=[];
           superthis.currWaypoint=0;
           superthis.command = null;
         })
-        //this.fillMenu();
+        this.menu.registerButton( "(u)nselect", "u",
+        function(){
+          superthis.menu.unselect("u");
+          superthis.unselect();
+        }, function() {
+        });
 
 
         this.draw = function(ctx) {
@@ -167,22 +190,23 @@
           }
         }
 
-        this.onselect=function() {
-          this.fillMenu();
+        this.select=function() {
+          this.menu.fillMenu();
+          this.selected=true;
         }
-        this.onunselect=function() {
-          this.clearMenu();
+        this.unselect=function() {
+          this.menu.clearMenu();
+          this.selected=false;
         }
 
         this.attemptSelect = function(x,y){
           var dd = dist(this.x,this.y,x,y);
           if( dd <= this.RADIUS ) {
-            this.selected = !this.selected;
 
             if(this.selected) {
-              this.onselect();
+              this.unselect();
             } else {
-              this.onunselect();
+              this.select();
             }
 
             return true;
@@ -232,6 +256,11 @@
               
               if( this.command==="route" ) {
                 this.currWaypoint %= this.waypoints.length;
+              } else if( this.command==="go") {
+                if(this.currWaypoint >= this.waypoints.length) {
+                  this.menu.unselect("g");
+                  this.command=null;
+                }
               }
 
             }
@@ -250,7 +279,7 @@
         this.commandpoint = function(x,y) {
          
           if(this.command==null){
-            this.selected=false;
+            this.unselect();
           }
 
           if(this.command==="go"){
@@ -263,11 +292,7 @@
         }
 
         this.commandkey = function(key){
-          for(var i=0; i<this.buttons.length; i++) {
-            if(this.buttons[i].shortcut===key){
-              this.buttons[i].toggle();
-            }
-          }
+          this.menu.buttons[key].toggle();
         }
       }
 
@@ -501,7 +526,9 @@
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
 
-        person = new Person(100,100,document.getElementById("commands"));
+        var commanddiv = document.getElementById("commands");
+        people.push( new Person(100,100,commanddiv) );
+        people.push( new Person(110,110,commanddiv) );
         
         landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30, function(){
           crop = new Crop(landcover);
@@ -513,8 +540,10 @@
           croploop();
 
           var personAdvance = function() {
-            person.advance(1, 0.30);
-            person.pick(crop);
+            for(var i=0; i<people.length; i++){
+              people[i].advance(1, 0.30);
+              people[i].pick(crop);
+            }
             setTimeout( personAdvance, 10 );
           }
           personAdvance();
@@ -532,11 +561,19 @@
 
         canvas.onmousedown = function(ev) {
           if(ev.button==0){
-            var clicked = person.attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
+            //once through to deliver commands
+            var commanded=false;
+            for(var i=0; i<people.length; i++) {
+              if(people[i].selected){
+                people[i].commandpoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
+                if(people[i].command)
+                  commanded=true;
+              }
+            }
 
-            if(!clicked) {
-              if(person.selected){
-                person.commandpoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
+            if(!commanded){
+              for(var i=0; i<people.length; i++) {
+                var clicked = people[i].attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
               }
             }
 
@@ -548,21 +585,26 @@
         }
 
         document.onkeypress = function(ev) {
+          console.log( ev );
+
           var key = String.fromCharCode( ev.charCode );
-          if( key==="s" ) {
-            if(person.selected)
-              person.startRoute();
-          } else if(key==='.') {
+          
+          if(key==='.') {
+            var person = people[currPerson];
             ll = person.x-30;
             rr = person.x+30;
             bb = person.y+30;
             tt = person.y-30;
             apply_transform();
             redraw();
+
+            currPerson = (currPerson+1)%people.length;
           }
 
-          if(person.selected){
-            person.commandkey(key);
+          for(var i=0; i<people.length; i++){
+            if(people[i].selected){
+              people[i].commandkey(key);
+            }
           }
         }
         
@@ -613,7 +655,8 @@
 
             crop.draw(ctx);
 
-            person.draw(ctx);
+            for(var i=0; i<people.length; i++)
+              people[i].draw(ctx);
 
         }
 
