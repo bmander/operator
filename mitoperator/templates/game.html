@@ -292,7 +292,9 @@
         }
 
         this.commandkey = function(key){
-          this.menu.buttons[key].toggle();
+          var button = this.menu.buttons[key]
+          if(button)
+            button.toggle();
         }
       }
 
@@ -590,7 +592,12 @@
           var key = String.fromCharCode( ev.charCode );
           
           if(key==='.') {
+            for(var i in people){
+              people[i].unselect();
+            }
+
             var person = people[currPerson];
+            person.select();
             ll = person.x-30;
             rr = person.x+30;
             bb = person.y+30;
@@ -599,6 +606,27 @@
             redraw();
 
             currPerson = (currPerson+1)%people.length;
+          }
+
+          //next idle worker
+          if(key===',') {
+            for(var i=currPerson; i<currPerson+people.length; i++){
+              var person = people[i%people.length];
+              if(person.command==null){
+                for(j in people){
+                  people[j].unselect();
+                }
+                person.select();
+                ll = person.x-30;
+                rr = person.x+30;
+                bb = person.y+30;
+                tt = person.y-30;
+                apply_transform();
+                redraw();
+                currPerson = (i+1)%people.length;
+                break;
+              }
+            }
           }
 
           for(var i=0; i<people.length; i++){
