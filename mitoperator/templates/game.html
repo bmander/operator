@@ -17,9 +17,8 @@
 
       var landcover;
       var crop;
-      var person;
 
-      var gobutton;
+      var person;
 
       function dist(x1,y1,x2,y2) {
         return Math.sqrt( Math.pow(x1-x2,2)+Math.pow(y1-y2,2) );
@@ -28,38 +27,112 @@
         return Math.sqrt( Math.pow(x,2)+Math.pow(y,2) );
       }
 
-      function Button(id) {
-        this.div = document.getElementById(id);
+      function Button(label, shortcut) {
+        this.shortcut = shortcut;
+        //create element for button
+        this.div = document.createElement('div');
+        this.div.innerHTML=label;
+        this.div.style.width=100;
+        this.div.style.height=40;
+        this.div.style.setProperty("background-color","yellow");
+        this.div.style.setProperty("margin-left","2px");
+
         this.div.button = this;
         this.selected = false;
 
+        this.onselect = null;
+        this.onunselect = null;
+
+        this.unselect = function() {
+            $(this.div).css('outline','#000000 none 2px');
+            if(this.onunselect){
+              this.onunselect();
+            }
+            this.selected=false;
+        }
+
+        this.select = function() {
+            $(this.div).css('outline','#000000 solid 2px');
+            if(this.onselect){
+              this.onselect();
+            }
+            this.selected=true;
+        }
+
         this.toggle = function() {
           if(!this.selected) {
-            $(this.div).css('outline','#000000 solid 2px');
+            this.select();
           } else {
-            $(this.div).css('outline','#000000 none 2px');
+            this.unselect();
           }
-          this.selected = !this.selected;
         }
 
         $(this.div).click(function(ev){
-          console.log(ev.target.button);
           this.button.toggle();
         });
 
       }
 
-      function Person(x,y) {
+      function Person(x,y,menudiv) {
         this.RADIUS = 0.25
         this.x = x;
         this.y = y;
         this.selected = false;
         this.fat = 0;
 
-        this.command=null;
+        this.command = null;
 
         this.waypoints = [];
         this.currWaypoint=0;
+
+        this.menu = menudiv; 
+
+        this.buttons = [];
+
+        this.registerButton = function( label, shortcut, onselect, onunselect ) {
+          var button = new Button(label, shortcut);
+          button.onselect = onselect;
+          button.onunselect = onunselect;
+          this.buttons.push( button );
+        }
+
+        this.fillMenu = function(){
+          for(var i=0; i<this.buttons.length; i++){
+            this.menu.appendChild( this.buttons[i].div );
+          }
+        }
+
+        this.clearMenu = function(){
+          this.menu.innerHTML="";
+        }
+
+        var superthis=this;
+        this.registerButton( "(g)o", "g",
+        function(){
+          for(var i=0; i<superthis.buttons.length; i++){
+            if(superthis.buttons[i]!=this)
+              superthis.buttons[i].unselect();
+          }
+          superthis.command = "go";
+        }, function() {
+          superthis.waypoints=[];
+          superthis.currWaypoint=0;
+          superthis.command = null;
+        });
+        this.registerButton( "(r)oute", "r",
+        function() {
+          for(var i=0; i<superthis.buttons.length; i++){
+            if(superthis.buttons[i]!=this)
+              superthis.buttons[i].unselect();
+          }
+          superthis.command = "route";
+        }, function() {
+          superthis.waypoints=[];
+          superthis.currWaypoint=0;
+          superthis.command = null;
+        })
+        //this.fillMenu();
+
 
         this.draw = function(ctx) {
           ctx.beginPath();
@@ -71,22 +144,47 @@
           ctx.lineWidth=0.05;
           ctx.stroke();
 
-          if(this.waypoints.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(this.waypoints[0][0],this.waypoints[0][1]);
-            for(var i=1; i<this.waypoints.length; i++){
-              var wp = this.waypoints[i];
-              ctx.lineTo(wp[0],wp[1]);
+          if(this.command==="go"){
+            if( this.currWaypoint <= this.waypoints.length ) {
+              ctx.beginPath();
+              ctx.moveTo(this.x, this.y);
+              for(var i=this.currWaypoint; i<this.waypoints.length; i++) {
+                wp = this.waypoints[i];
+                ctx.lineTo(wp[0],wp[1]);
+              }
+              ctx.stroke();
             }
-            ctx.lineTo(this.waypoints[0][0],this.waypoints[0][1]);
-            ctx.stroke();
+          } else if(this.command==="route") {
+            if( this.waypoints.length > 1 ) {
+              ctx.beginPath();
+              ctx.moveTo(this.waypoints[0][0], this.waypoints[0][1]);
+              for(var i=1; i<this.waypoints.length; i++){
+                ctx.lineTo(this.waypoints[i][0], this.waypoints[i][1]);
+              }
+              ctx.lineTo(this.waypoints[0][0], this.waypoints[0][1]);
+              ctx.stroke();
+            }
           }
+        }
+
+        this.onselect=function() {
+          this.fillMenu();
+        }
+        this.onunselect=function() {
+          this.clearMenu();
         }
 
         this.attemptSelect = function(x,y){
           var dd = dist(this.x,this.y,x,y);
           if( dd <= this.RADIUS ) {
             this.selected = !this.selected;
+
+            if(this.selected) {
+              this.onselect();
+            } else {
+              this.onunselect();
+            }
+
             return true;
           }
           return false;
@@ -103,27 +201,43 @@
         }
 
         this.advance = function(v,dt) {
-          if(this.waypoints.length < 2){
+          if( this.waypoints.length < 1 ) {
             return;
           }
 
           var ds = v*dt; // m/s * s = m 
 
           while( ds > 0 ) {
+            if( this.currWaypoint >= this.waypoints.length ) {
+              return;
+            }
+
+            // get the way point
             var wp = this.waypoints[this.currWaypoint];
 
-            // vector to next waypoint
+            // vector and distance to next goal
             var goal = [wp[0]-this.x,wp[1]-this.y];
             var goaldist = mag(goal[0], goal[1]);
-            
+
             if(goaldist > ds) {
               var goaldir = [goal[0]/goaldist, goal[1]/goaldist];
               this.x += goaldir[0]*ds;
               this.y += goaldir[1]*ds;
               break;
             } else {
+              this.x = wp[0];
+              this.y = wp[1]
               ds -= goaldist;
-              this.currWaypoint = (this.currWaypoint+1)%this.waypoints.length;
+              this.currWaypoint += 1;
+              
+              if( this.command==="route" ) {
+                this.currWaypoint %= this.waypoints.length;
+              }
+
+            }
+
+            if(goaldist==0){
+              return;
             }
           }
           
@@ -131,6 +245,29 @@
 
         this.pick = function( crop ) {
           this.fat += crop.pick(this.x,this.y);
+        }
+
+        this.commandpoint = function(x,y) {
+         
+          if(this.command==null){
+            this.selected=false;
+          }
+
+          if(this.command==="go"){
+            this.addWaypoint( x, y );
+          }
+          if(this.command==="route"){
+            this.addWaypoint( x, y );
+          }
+
+        }
+
+        this.commandkey = function(key){
+          for(var i=0; i<this.buttons.length; i++) {
+            if(this.buttons[i].shortcut===key){
+              this.buttons[i].toggle();
+            }
+          }
         }
       }
 
@@ -364,7 +501,7 @@
         canvas = $("#canvas")[0]
         ctx = canvas.getContext("2d");
 
-        person = new Person(100,100);
+        person = new Person(100,100,document.getElementById("commands"));
         
         landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30, function(){
           crop = new Crop(landcover);
@@ -394,15 +531,13 @@
 
 
         canvas.onmousedown = function(ev) {
-          console.log(ev.button);
           if(ev.button==0){
             var clicked = person.attemptSelect( mapX(mouseX(ev)), mapY(mouseY(ev)) ); 
-            if(person.selected && clicked) {
-              person.startRoute();
-            }
 
-            if(person.selected && !clicked){
-              person.addWaypoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
+            if(!clicked) {
+              if(person.selected){
+                person.commandpoint( mapX(mouseX(ev)), mapY(mouseY(ev)) );
+              }
             }
 
             redraw();
@@ -424,6 +559,10 @@
             tt = person.y-30;
             apply_transform();
             redraw();
+          }
+
+          if(person.selected){
+            person.commandkey(key);
           }
         }
         
@@ -506,17 +645,15 @@
         // IE/Opera.
         window.onmousewheel = document.onmousewheel = wheel;
 
-        gobutton = new Button("commandgo");
-
       });
     </script>
   </head>
   <body style="background-color:#ffeeee">
     <canvas style="float:left;background-color:#ffffff;image-rendering:optimizeSpeed" id="canvas" width="1000" height="1000"></canvas>
-    <div style="float:left;cursor:default">
-    <div style="width:100;height:50;background-color:yellow;" id="commandgo">(g)o</div>
-    <div style="width:100;height:50;background-color:#ff00ff;" id="commandroute">(r)oute</div>
-    <div style="width:100;height:50;background-color:#00ff00;" id="commandstop">(s)top</div>
+    <div style="float:left;cursor:default" id="commands">
+      <!--<div style="width:100;height:50;background-color:yellow;" id="commandgo">(g)o</div>
+      <div style="width:100;height:50;background-color:#ff00ff;" id="commandroute">(r)oute</div>
+      <div style="width:100;height:50;background-color:#00ff00;" id="commandstop">(s)top</div>-->
     <div>
   </body>
 </html>
