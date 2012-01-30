@@ -279,7 +279,7 @@
         }
 
         this.divide = function() {
-          if(this.fat >= 5){
+          if(this.fat >= 25){
             people.push( new Person(this.x+2,this.y,commanddiv) );
             this.fat=0;
           }
@@ -402,7 +402,7 @@
 
       }
 
-      function Crop(landcover) {
+      function Crop(landcover, mult) {
         this.product = {};
         this.product[landcover.types.WATER]=0;
         this.product[landcover.types.WETLAND]=50;
@@ -418,15 +418,19 @@
         this.landcover = landcover;
         this.rates = []
 
-        for(var i=0; i<(landcover.img.width*landcover.img.height); i++) {
-          var color = landcover.pixel(i);
-          var type = landcover.colors[color];
-          this.rates[i] = this.product[type];
+        for(var x=0; x<landcover.img.width; x++){
+          for(var y=0; y<landcover.img.height; y++) {
+            var i = landcover.img.width*y+x;
+        //for(var i=0; i<(landcover.img.width*landcover.img.height); i++) { 
+            var color = landcover.pixel(i);
+            var type = landcover.colors[color];
+            this.rates[i] = this.product[type];
+          }
         }
 
         this.yield = []
         for(var i=0; i<this.rates.length; i++) {
-          this.yield[i]=0;
+          this.yield[i]=1.1;
         }
 
         this.update = function(period) {
@@ -545,17 +549,17 @@
         people.push( new Person(110,110,commanddiv) );
         
         landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30, function(){
-          crop = new Crop(landcover);
+          crop = new Crop(landcover,2);
 
           var croploop = function() {
-            crop.update( 0.0004 );
+            crop.update( 0.0001 );
             setTimeout( croploop, 100 );
           }
           croploop();
 
           var personAdvance = function() {
             for(var i=0; i<people.length; i++){
-              people[i].advance(1, 0.30);
+              people[i].advance(1, 0.05);
               people[i].pick(crop);
               people[i].divide();
             }
