@@ -418,19 +418,29 @@
         this.landcover = landcover;
         this.rates = []
 
+        this.cropwidth = this.landcover.img.width*mult;
+        this.cropheight = this.landcover.img.height*mult;
+        this.mult=mult;
+
         for(var x=0; x<landcover.img.width; x++){
           for(var y=0; y<landcover.img.height; y++) {
             var i = landcover.img.width*y+x;
-        //for(var i=0; i<(landcover.img.width*landcover.img.height); i++) { 
             var color = landcover.pixel(i);
             var type = landcover.colors[color];
-            this.rates[i] = this.product[type];
+
+            for(var px=0; px<this.mult; px++){
+              for(var py=0; py<this.mult; py++) {
+                
+                var cropi = (y*this.mult+py)*this.cropwidth + (x*this.mult+px);
+                this.rates[cropi] = this.product[type];
+              }
+            }
           }
         }
 
         this.yield = []
         for(var i=0; i<this.rates.length; i++) {
-          this.yield[i]=1.1;
+          this.yield[i]=1.9;
         }
 
         this.update = function(period) {
@@ -445,8 +455,8 @@
         this.draw = function(ctx) {
           //create temp canvas
           var tmpcvs = document.createElement('canvas');
-          tmpcvs.width = this.landcover.img.width;
-          tmpcvs.height = this.landcover.img.height;
+          tmpcvs.width = this.landcover.img.width*this.mult;
+          tmpcvs.height = this.landcover.img.height*this.mult;
           var tmpctx = tmpcvs.getContext("2d");
           var id = tmpctx.getImageData(0,0,tmpcvs.width,tmpcvs.height);
           for(var i=0; i<id.width*id.height; i++) {
@@ -460,11 +470,13 @@
           tmpctx.putImageData(id,0,0);
 
           //draw it
-          ctx.drawImage( tmpcvs, 0, 0, id.width*this.landcover.xres, id.height*this.landcover.yres );
+          ctx.drawImage( tmpcvs, 0, 0, id.width*this.landcover.xres/this.mult, id.height*this.landcover.yres/this.mult );
         }
 
         this.pick = function( x, y ) {
-          var index = this.landcover.getIndex( x, y );
+          //var index = this.cropwidth*y*this.mult+x*this.mult;
+          var index = Math.floor(this.mult*x/this.landcover.xres + this.cropwidth*(this.mult*y/this.landcover.yres)); 
+          //var index = this.landcover.getIndex( x*mult, y*mult );
           if( this.yield[index] > 1 ) {
             this.yield[index]=0;
             return 1;
@@ -549,7 +561,7 @@
         people.push( new Person(110,110,commanddiv) );
         
         landcover = new Landcover( ctx, "/static/img/boston.png", 30, 30, function(){
-          crop = new Crop(landcover,2);
+          crop = new Crop(landcover,3);
 
           var croploop = function() {
             crop.update( 0.0001 );
